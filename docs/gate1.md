@@ -22,12 +22,16 @@ WebKitGTK 2.54.1.
 | Cold start (median of 5) | 435 ms | 321 ms | Linux target set here |
 | Idle RAM (PSS, all processes) | 202 MiB | 163 MiB | Linux target set here |
 | Idle CPU | ~11% (app 8.5%, web process 3%) | ~1% | ~0% |
-| Keystroke → results p95 | not measured | 43 ms (p50 27 ms, max 48 ms; 110 keystrokes, rerun with ≥ 200 pending) | ≤ 50 ms |
-| Rendering glitches | none seen | results drawn off-screen when one line is wider than the window (fixed, see below) | — |
+| Keystroke → results p95 | not measured | 45 ms (p50 24 ms, max 57 ms; 200 keystrokes, after both UI fixes) | ≤ 50 ms |
+| Rendering glitches | none seen | results drawn off-screen when one line is wider than the window; end-of-line cursor drawn next to the result (both fixed, see below) | — |
 
 **Change made:** the app now sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` at startup on Linux unless the variable is already set (`src-tauri/src/main.rs`). With it, idle CPU meets the budget and cold start and RAM improve. Setting the variable to `0` restores the DMABUF renderer.
 
 **Bug found in the typing run:** with soft wrap off, every line is as wide as the longest one, so results aligned to the line's right edge were pushed out of view once any line was wider than the window. Results now stay pinned to the visible right edge (`ui/src/editor/results.ts`, `pinToViewport`) and cover any text they overlap.
+
+**Second bug:** results were inline widgets at the line end, so the editor drew the end-of-line cursor next to the result. Results are now a line attribute drawn with CSS `::after`, which the cursor ignores. Click-to-copy (M3) will hit-test the click position instead of a result element.
+
+**Arch verdict:** pass. Every budget is met with the DMABUF renderer off.
 
 ## macOS
 
@@ -42,4 +46,4 @@ _Pending: run on the Mac (prerequisites in the M2 plan, Task 6)._
 
 ## Decision
 
-_Pending the keystroke p95 on Arch and the macOS numbers._
+_Arch passes. Pending the macOS numbers._
