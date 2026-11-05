@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: core APIs, destroy (close waits for the last save) and set-title (note name); app commands are allowed by default.",
+  "description": "Main window: core APIs, destroy (close waits for the last save) set-title (note name) and hide (Esc); app commands are allowed by default.",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-destroy", "core:window:allow-set-title"]
+  "permissions": ["core:default", "core:window:allow-destroy", "core:window:allow-set-title", "core:window:allow-hide"]
 }

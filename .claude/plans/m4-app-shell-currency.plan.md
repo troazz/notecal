@@ -111,9 +111,10 @@ background = true             # close hides to tray; Quit from tray
 - **Validate**: Rust tests: missing file → defaults; partial file; invalid values fall back with a message; round trip. Manual: editing `settings.toml` by hand changes precision live.
 - **Done**: checked in the release build — writing `precision = 2` by hand changed `260.975901 miles` to `260.98 miles` without a restart. Problems found in the file are shown in the notice. `notes_dir` is read at startup; switching it live is Task 6.
 
-### Task 2: Single instance and `--toggle` (A2)
+### Task 2: Single instance and `--toggle` (A2) ✅
 - **Action**: single-instance plugin, toggle logic, Esc hides, `docs/linux-setup.md` with the Hyprland Lua binding (`notecal --toggle` on Alt+Space) plus Sway and GNOME.
 - **Validate**: Manual on Hyprland: `notecal --toggle` from a terminal shows the window focused and typing goes to it; again hides it; show time measured from the command to the first frame (target ≤ 100 ms).
+- **Done**: on Hyprland, toggle hides the focused window and shows it focused (no focus-stealing rule needed); one instance stays running. Command → focused window: 87–111 ms, including starting the second process and `hyprctl` polling. Esc hides (after saving); Esc in the search panel only closes the panel.
 
 ### Task 3: Window state, always-on-top, global shortcut (A5, A4, A1)
 - **Action**: window-state plugin; always-on-top setting + Mod+Shift+T; global shortcut registration (skipped on Wayland, with the reason shown in Settings).

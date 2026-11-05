@@ -2,6 +2,7 @@ mod commands;
 mod evaluator;
 mod notes;
 mod settings;
+mod shell;
 mod state;
 mod theme;
 mod watch;
@@ -77,6 +78,11 @@ fn main() {
     #[cfg(target_os = "linux")]
     configure_webkit();
     tauri::Builder::default()
+        // Must be the first plugin: a second launch hands its arguments to
+        // this instance and exits before anything else starts.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            shell::on_second_instance(app, &args);
+        }))
         .manage(startup)
         .manage(Arc::new(Evaluator::default()))
         .setup(|app| {

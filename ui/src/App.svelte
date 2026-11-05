@@ -145,12 +145,21 @@
       event.preventDefault();
       stats = timer.stats();
       showStats = !showStats;
+    } else if (event.key === "Escape" && !showSwitcher && !event.defaultPrevented && !inEditorPanel(event)) {
+      // Key scenario 1: Esc hides the window; edits are saved first.
+      event.preventDefault();
+      void persist().then(() => getCurrentWindow().hide());
     } else if (mod && !event.shiftKey && key === "p") {
       event.preventDefault();
       void session?.flush();
       showSwitcher = !showSwitcher;
       if (!showSwitcher) editor?.focus();
     }
+  }
+
+  /** Esc inside the editor's search panel closes the panel, not the window. */
+  function inEditorPanel(event: KeyboardEvent): boolean {
+    return event.target instanceof Element && event.target.closest(".cm-panels") !== null;
   }
 
   function statsLine(): string {
