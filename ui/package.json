@@ -12,6 +12,7 @@
     "tauri": "cd .. && tauri"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "6.20.4",
     "@codemirror/commands": "6.11.1",
     "@codemirror/search": "6.7.2",
     "@codemirror/state": "6.7.6",

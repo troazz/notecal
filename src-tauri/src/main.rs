@@ -197,6 +197,7 @@ fn main() {
             shell::shortcut_status,
             shell::quit,
             commands::rates_status,
+            commands::currency_codes,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start the notecal window");

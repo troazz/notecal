@@ -140,9 +140,10 @@ background = true             # close hides to tray; Quit from tray
 - **Validate**: Rust tests for listing and loading; manual: copy an Omarchy `colors.toml` into the folder, pick it, edit it, see it repaint.
 - **Done (Tasks 6–7)**: Settings screen (Ctrl+,) with every setting, the shortcut status, and the rates credit (plain text: the webview has no link opener). Checked live by editing `settings.toml` by hand: a user theme (`latte.toml`, copied from Omarchy) repainted the app, `font_family`/`font_size` changed the editor font, and `notes_dir` switched the note list and opened a note from the new folder; removing the file switched back. `light`/`dark` force the built-in palette; a broken user theme is logged and falls back to auto.
 
-### Task 8: Autocomplete (E5)
+### Task 8: Autocomplete (E5) ✅ (hand-typed p95 pending)
 - **Action**: `complete.ts` source: variables, common units, currency codes.
 - **Validate**: Vitest on the source; manual: typing `elec` offers `electricity`; numbers never trigger it. Typing p95 checked by hand once (no scripted runs).
+- **Done**: Tab accepts (Enter always makes a new line), arrows move, Esc closes the list before it would hide the window. Variables only after their assignment line; after a number only units and currencies; nothing in comments. Checked live: `elec` → Tab → `electricity * 2` = 700,000.
 
 ### Task 9: Wrap-up
 - **Action**: `/ecc:rust-review` and `/ecc:code-review`, fix real findings, update PRD/plan.

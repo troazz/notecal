@@ -27,6 +27,7 @@
     keymap,
     rectangularSelection,
   } from "@codemirror/view";
+  import { noteCompletion } from "./editor/complete";
   import { notecalHighlighting } from "./editor/language";
   import { results, setResults } from "./editor/results";
   import { Scheduler } from "./editor/scheduler";
@@ -49,6 +50,11 @@
 
   onMount(() => {
     let view: EditorView | undefined;
+    /** Currency codes for autocomplete; loaded once, empty until then. */
+    let currencies: readonly string[] = [];
+    invoke<string[]>("currency_codes")
+      .then((codes) => (currencies = codes))
+      .catch((error: unknown) => console.error("currency_codes failed", error));
 
     const scheduler = new Scheduler({
       invoke: (request) => invoke<EvalResponse | null>("evaluate", { request }),
@@ -78,6 +84,7 @@
         search({ top: true }),
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         notecalHighlighting,
+        noteCompletion(() => currencies),
         // Marks the cursor line so its (half-typed) error marker stays hidden.
         highlightActiveLine(),
         results,
@@ -164,6 +171,16 @@
     border: 1px solid var(--border-color);
     border-radius: 4px;
     background-image: none;
+  }
+  .editor :global(.cm-tooltip-autocomplete) {
+    background: var(--panel-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    font: 13px var(--editor-font, monospace);
+  }
+  .editor :global(.cm-tooltip-autocomplete li[aria-selected]) {
+    background: var(--selection-color);
+    color: var(--text-color);
   }
   .editor :global(.cm-searchMatch) {
     background: color-mix(in srgb, var(--accent-color) 30%, transparent);

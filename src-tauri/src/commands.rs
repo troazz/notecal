@@ -307,6 +307,12 @@ pub fn rates_path(cache_dir: &Path) -> PathBuf {
     cache_dir.join("notecal").join("rates.json")
 }
 
+/// Currency codes, for autocomplete.
+#[tauri::command]
+pub fn currency_codes() -> &'static [&'static str] {
+    notecal_core::currency::CODES
+}
+
 #[tauri::command]
 pub fn rates_status(state: State<'_, RatesState>) -> RatesStatus {
     state.lock().status()
