@@ -40,6 +40,22 @@ bindsym Mod1+space exec notecal --toggle
 
 Settings → Keyboard → View and Customise Shortcuts → Custom Shortcuts → add one with the command `notecal --toggle`.
 
+## Window size, position and always on top (Wayland)
+
+On Wayland the compositor decides where windows go and how big they are, and apps cannot keep themselves on top, so notecal's "always on top" setting and its remembered window size only apply on X11 and macOS. On Hyprland, a window rule does the same job:
+
+```lua
+-- ~/.config/hypr/hyprland.lua (Lua config)
+hl.window_rule({ match = { class = "^notecal$" }, float = true, center = true, size = { 720, 520 }, pin = true })
+```
+
+```ini
+# hyprland.conf (classic config)
+windowrule = float, pin, size 720 520, center, class:^(notecal)$
+```
+
+`pin` keeps notecal above other windows on every workspace; drop it if you do not want that. The Lua form matches the rules Omarchy itself uses (`/usr/share/omarchy/default/hypr`).
+
 ## Files
 
 | What | Where |

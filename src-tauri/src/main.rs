@@ -14,6 +14,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use commands::{Notes, SettingsState, ThemeSource};
 use evaluator::{EvalRequest, EvalResponse, Evaluator};
 use tauri::{Manager, State};
+use tauri_plugin_window_state::StateFlags;
 use watch::Watch;
 
 /// File watches that must live as long as the app.
@@ -77,19 +78,36 @@ fn main() {
     };
     #[cfg(target_os = "linux")]
     configure_webkit();
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         // Must be the first plugin: a second launch hands its arguments to
         // this instance and exits before anything else starts.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             shell::on_second_instance(app, &args);
-        }))
+        }));
+    // On Wayland the compositor owns window geometry, stacking and global
+    // keys: the window-state plugin saved wrong sizes and a bogus
+    // "maximized" there, and shortcuts cannot be registered. Compositor
+    // rules and `notecal --toggle` cover both (docs/linux-setup.md).
+    if !shell::is_wayland() {
+        builder = builder
+            // A5. Visibility is not restored: notecal may have been hidden when it quit.
+            .plugin(
+                tauri_plugin_window_state::Builder::default()
+                    .with_state_flags(StateFlags::all() - StateFlags::VISIBLE)
+                    .build(),
+            )
+            .plugin(tauri_plugin_global_shortcut::Builder::new().build());
+    }
+    builder
         .manage(startup)
         .manage(Arc::new(Evaluator::default()))
+        .manage(shell::ShortcutStatus::default())
         .setup(|app| {
             let paths = app.path();
             let config_dir = paths.config_dir()?;
             let settings = SettingsState::new(commands::settings_path(&config_dir));
             let current = settings.view().settings;
+            shell::apply_window_settings(app.handle(), &current);
             app.state::<Arc<Evaluator>>().set_settings(current.engine());
             let notes = Notes::new(
                 commands::resolve_notes_dir(&current, &paths.data_dir()?),
@@ -152,6 +170,7 @@ fn main() {
             commands::get_theme,
             commands::get_settings,
             commands::save_settings,
+            shell::shortcut_status,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start the notecal window");
