@@ -346,7 +346,8 @@ impl LineEval<'_> {
             references.block_len,
             references.sum_valid,
         )?;
-        let fend_expr = preprocess::rewrite_percentages(&rewritten.expr);
+        let grouped = preprocess::group_unit_divisors(&rewritten.expr);
+        let fend_expr = preprocess::rewrite_percentages(&grouped);
 
         // `_prev = name = (expr)` stores the result for `prev` and in the
         // user's variable. Counted lines with a total below them also add it to

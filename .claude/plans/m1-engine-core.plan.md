@@ -209,4 +209,4 @@ Design changes made during implementation:
 
 ## Known issues found after M1
 
-- **Division by a quantity with a unit binds wrongly.** fend parses `8 km / 2 km` as `(8 km / 2) km` = `4 km^2`, and `1 GiB / 4 KiB` as `GiB^2`. Users expect `4` and `262,144`. Parenthesised forms are correct. Fix belongs in the preprocessor (treat `number unit` as one operand before `/`), with golden cases. Found while building the M2 fixture; not yet scheduled.
+- **Division by a quantity with a unit binds wrongly.** fend parses `8 km / 2 km` as `(8 km / 2) km` = `4 km^2`, and `1 GiB / 4 KiB` as `GiB^2`. Users expect `4` and `262,144`. Parenthesised forms are correct. Fix belongs in the preprocessor (treat `number unit` as one operand before `/`), with golden cases. Found while building the M2 fixture. **Fixed in M3 Task 1** (`preprocess::group_unit_divisors`).
