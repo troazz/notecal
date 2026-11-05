@@ -5,6 +5,7 @@ description = "Calculator notepad: natural math per line, results as you type"
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
+license.workspace = true
 publish = false
 
 [build-dependencies]

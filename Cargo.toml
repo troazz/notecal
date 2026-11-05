@@ -6,6 +6,7 @@ members = ["crates/*", "src-tauri"]
 edition = "2024"
 rust-version = "1.85"
 repository = "https://github.com/troazz/notecal"
+license = "MIT"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
