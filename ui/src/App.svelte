@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import Editor, { type EditorController } from "./Editor.svelte";
   import Switcher from "./notes/Switcher.svelte";
@@ -131,8 +133,21 @@
       appWindow.onFocusChanged(({ payload: focused }) => {
         if (!focused) void persist();
       }),
-      appWindow.onCloseRequested(async () => {
+      appWindow.onCloseRequested(async (event) => {
         await persist();
+        // A3: with "background" on, closing hides; Quit is in the tray.
+        const background = await settingsApi
+          .get()
+          .then((view) => view.settings.background)
+          .catch(() => false);
+        if (background) {
+          event.preventDefault();
+          await appWindow.hide();
+        }
+      }),
+      listen("quit-requested", async () => {
+        await persist();
+        await invoke("quit");
       }),
     ];
     return () => stops.forEach((stop) => void stop.then((unlisten) => unlisten()));
