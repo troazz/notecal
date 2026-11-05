@@ -182,12 +182,13 @@ These rules are normative. Each one gets golden test cases.
 | Hotkey show (app already running) | ≤ 100 ms | Screen capture |
 | Idle RAM | ≤ 80 MB macOS; Linux target set at Gate 1 from measurement | Sum of PSS across the app and all webview processes (`smem` / Activity Monitor) |
 | Keystroke to updated results | ≤ 50 ms p95 for a 200-line note, end to end | Frame timing in the webview |
-| Full evaluation of a 200-line note | ≤ 8 ms | `criterion` benchmark |
-| Single-line evaluation | ≤ 40 µs median | `criterion` benchmark |
+| Full evaluation of a 200-line note, nothing cached | ≤ 15 ms | `criterion` benchmark |
+| Re-evaluation after editing the last line of a 200-line note | ≤ 2 ms | `criterion` benchmark |
+| Single-line evaluation | ≤ 200 µs median | `criterion` benchmark |
 | Per-line time limit (C13) | 50 ms, then the line is interrupted | Engine test |
 | Idle CPU | ~0% with no timers or polling | `top` |
 
-The 8 ms engine budget plus IPC and render must fit inside the 50 ms end-to-end budget. The per-line budget leaves room for a full 200-line re-evaluation within the note budget.
+Engine budgets are set from fend-core's measured speed (M1 spike: ~120 µs per line, ~11 ms per 200-line note). The cache re-evaluates from the first changed line downward, so typing near the end of a note costs well under 2 ms, and editing the top line costs at most a full evaluation; even an uncached 15 ms evaluation plus IPC and render fits inside the 50 ms end-to-end budget.
 
 **Other requirements**
 
@@ -223,7 +224,7 @@ The Rust process owns all logic. The Svelte webview is a thin editor: it sends t
 1. Edits are coalesced to at most one request per animation frame. There is no fixed debounce.
 2. Each request carries the editor's document version. Evaluation runs on a worker thread. A newer request supersedes an older one, and the UI drops any response older than the current version.
 3. The engine evaluates line by line, top to bottom, so variables, `prev` and `sum` resolve correctly.
-4. A line's result is cached by its text plus the inputs it can see (variables in scope, `prev`, block state). Unchanged lines with unchanged inputs reuse the cached result. This keeps edits near the top of a long note cheap.
+4. The engine keeps each line's result and the evaluation state after it. On the next request, lines above the first changed line are reused and evaluation resumes from there. This is required, not optional: fend-core costs ~120 µs per line. (A finer, dependency-aware cache was rejected: fend does not expose its values, and the prefix cache already meets the budgets.)
 
 **IPC contract.**
 
@@ -296,7 +297,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 
 | # | Milestone | Outcome | Status | Plan |
 |---|---|---|---|---|
-| 1 | Engine core (~2.5 w) | `notecal-core` evaluates C1–C8, C10, C12, C13 with the language rules; ≥ 150 golden cases, fuzz test, and benches meeting the engine budgets | in-progress | `.claude/plans/m1-engine-core.plan.md` |
+| 1 | Engine core (~2.5 w) | `notecal-core` evaluates C1–C8, C10, C12, C13 with the language rules; ≥ 150 golden cases, fuzz test, per-line cache, and benches meeting the engine budgets | in-progress | `.claude/plans/m1-engine-core.plan.md` |
 | 2 | Shell spike + Gate 1 (~1.5 w) | Tauri + Svelte + CodeMirror window with live right-aligned results for one note on both machines; Gate 1 measurements recorded | pending | — |
 | 3 | Notes and editor (~2 w) | N1–N5, E1–E6 (E5, E7–E9 if time allows); notes are safe under Syncthing | pending | — |
 | 4 | App shell and currency (~1.5 w) | A1, A2, A3–A6, C9 with cached offline rates | pending | — |
@@ -318,7 +319,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 | WebKitGTK is slow or glitchy on some Wayland/GPU setups | Typing lag on Arch | Gate 1 at end of M2; workaround flags; the engine stays UI-agnostic, so an iced frontend remains an option |
 | WebKitGTK cold start and memory exceed the macOS-level budgets | Linux misses "light and fast" | Linux targets are set from Gate 1 measurements, not assumed |
 | fend-core syntax differs from Numi's (`prev`, `sum`, `% of`, `50 + 10%`) | Expressions feel wrong | Preprocessing layer rewrites Numi syntax before fend; the percent and reference rules are golden-tested in the first week of M1 |
-| fend-core is slower than the per-line budget | Typing lag on long notes | Benchmark in week 1 of M1; the per-line cache limits re-evaluation to changed lines and their dependants |
+| fend-core is slow (~120 µs per line, measured in M1) | Typing lag on long notes | Per-line cache limits re-evaluation to changed lines and their dependants; budgets set from measurement |
 | Pathological input (`10^10^10`, huge factorials) | CPU or memory spike, frozen results | Per-line interrupt (C13), evaluation off the UI thread, fuzz test |
 | Global hotkeys do not work on Wayland | No system-wide hotkey on Hyprland | `notecal --toggle` (A2) is P0; docs show the Hyprland, Sway and GNOME bindings |
 | Wayland compositors deny focus to the shown window | Hotkey show misses 100 ms or opens unfocused | Test at Gate 1; use xdg-activation where available |
@@ -359,3 +360,4 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 - Removed the "pluggable currency provider" (one provider; isolated module instead). Deferred the Homebrew cask pending signing.
 - Restored the architecture diagram and reconstructed the milestone and gate definitions lost in export, in the table format ECC's `/plan` reads.
 - Made accessibility concrete: WCAG 2.2 AA contrast and screen-reader access to results.
+- (M1, after the fend spike) Engine budgets set from measurement: ≤ 200 µs per line, ≤ 15 ms uncached per 200-line note, ≤ 2 ms to re-evaluate after editing the last line; the prefix cache became required.

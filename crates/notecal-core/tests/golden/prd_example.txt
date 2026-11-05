@@ -1,0 +1,13 @@
+;; The example note from the PRD
+# Monthly budget
+rent = 4,500,000 IDR => 4,500,000 IDR
+electricity = 350,000 IDR => 350,000 IDR
+internet = 450,000 IDR => 450,000 IDR
+total => 5,300,000 IDR
+20% of prev => 1,060,000 IDR
+
+# Conversions
+450 USD in IDR => 7,200,000 IDR
+5 km in miles => 3.106856 miles
+3 days 4 hours in minutes => 4,560 minutes
+0xff in binary => 11111111

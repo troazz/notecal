@@ -1,0 +1,32 @@
+;; C6 prev, sum, total, avg
+10 => 10
+20 => 20
+30 => 30
+sum => 60
+avg => 20
+total => 60
+prev + 1 => 61
+
+;; blank line starts a new block
+5 => 5
+sum => 5
+---
+1 km => 1 km
+500 m => 500 m
+sum => 1.5 km
+---
+2 => 2
+// comments keep the block
+3 => 3
+sum => 5
+# a header ends it
+sum
+---
+5 IDR => 5 IDR
+1 km => 1 km
+sum
+---
+x = 4 => 4
+y = 6 => 6
+sum => 10
+prev * 2 => 20
