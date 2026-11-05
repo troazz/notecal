@@ -1,26 +1,9 @@
 import { RangeSetBuilder, StateEffect, StateField, type Extension, type Text } from "@codemirror/state";
-import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view";
+import { Decoration, EditorView, ViewPlugin, type DecorationSet } from "@codemirror/view";
 import type { LineResult } from "./types";
 
 /** Replaces the displayed results; one entry per document line. */
 export const setResults = StateEffect.define<LineResult[]>();
-
-class ResultWidget extends WidgetType {
-  constructor(readonly text: string) {
-    super();
-  }
-
-  override eq(other: ResultWidget): boolean {
-    return other.text === this.text;
-  }
-
-  toDOM(): HTMLElement {
-    const span = document.createElement("span");
-    span.className = "cm-result";
-    span.textContent = this.text;
-    return span;
-  }
-}
 
 function build(doc: Text, lines: readonly LineResult[]): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
@@ -28,8 +11,11 @@ function build(doc: Text, lines: readonly LineResult[]): DecorationSet {
   for (let i = 0; i < count; i++) {
     const display = lines[i]?.display;
     if (!display) continue;
+    // A line attribute drawn by CSS, not a widget: an inline widget at the
+    // line end is what the editor measures the end-of-line cursor against,
+    // which put the cursor next to the result instead of after the text.
     const line = doc.line(i + 1);
-    builder.add(line.to, line.to, Decoration.widget({ widget: new ResultWidget(display), side: 1 }));
+    builder.add(line.from, line.from, Decoration.line({ attributes: { "data-result": display } }));
   }
   return builder.finish();
 }
@@ -92,13 +78,15 @@ const resultsTheme = EditorView.baseTheme({
   ".cm-line": { position: "relative" },
   // Absolutely positioned so a result never shifts the text it follows. The
   // background hides any text the result overlaps on a long line.
-  ".cm-result": {
+  ".cm-line[data-result]::after": {
+    content: "attr(data-result)",
     position: "absolute",
     right: "calc(var(--result-overflow, 0px) + 0.75rem)",
     paddingLeft: "0.75rem",
     color: "var(--result-color)",
     background: "var(--bg-color)",
     whiteSpace: "pre",
+    pointerEvents: "none",
   },
 });
 
