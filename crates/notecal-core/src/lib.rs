@@ -10,6 +10,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod currency;
 mod format;
 mod preprocess;
 
@@ -28,6 +29,8 @@ use preprocess::LineKind;
 pub const LINE_TIME_LIMIT: Duration = Duration::from_millis(50);
 
 const TOO_LONG: &str = "This calculation took too long";
+/// Hover message for a currency line before any rates were fetched (PRD C9).
+pub const NO_RATES: &str = "No exchange rates yet";
 
 /// Number formatting convention for input and output.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -314,6 +317,9 @@ impl LineEval<'_> {
         match self.evaluate_expr(line, feeds_total, context, references) {
             Ok(Some(result)) => result,
             Ok(None) => LineResult::default(),
+            Err(_) if self.rates.is_none() && currency::mentions_currency(line) => {
+                LineResult::error(NO_RATES)
+            }
             Err(message) => LineResult::error(message),
         }
     }
@@ -442,6 +448,19 @@ fn asks_for_base(expr: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn currency_without_rates_says_so() {
+        for line in ["100 USD in IDR", "5 EUR", "rent = 4,500,000 IDR"] {
+            let result = &evaluate_note(line, &Settings::default(), None)[0];
+            assert_eq!(result.display, None, "{line}");
+            assert_eq!(result.error.as_deref(), Some(NO_RATES), "{line}");
+        }
+        // Lines without a currency are unaffected.
+        let plain = &evaluate_note("5 km in miles", &Settings::default(), None)[0];
+        assert!(plain.display.is_some());
+    }
+
     use super::*;
 
     #[test]

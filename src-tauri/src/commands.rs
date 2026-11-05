@@ -9,6 +9,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::evaluator::Evaluator;
 use crate::notes::{DiskChange, NoteInfo, NoteStore, SaveOutcome};
+use crate::rates::{self, Fetch, RatesStatus, RatesStore};
 use crate::settings::{self, AppSettings, SettingsView};
 use crate::state::{self, UiState};
 use crate::theme::{self, Theme};
@@ -197,6 +198,73 @@ impl SettingsState {
             self.apply(app, settings::load(&self.path));
         }
     }
+}
+
+/// Exchange rates: the on-disk cache and how to refresh it.
+pub struct RatesState {
+    store: Mutex<RatesStore>,
+    fetcher: Arc<dyn Fetch>,
+}
+
+impl RatesState {
+    pub fn new(store: RatesStore, fetcher: Arc<dyn Fetch>) -> Self {
+        Self {
+            store: Mutex::new(store),
+            fetcher,
+        }
+    }
+
+    pub fn initial_rates(&self) -> Option<notecal_core::Rates> {
+        self.lock().rates()
+    }
+
+    fn lock(&self) -> MutexGuard<'_, RatesStore> {
+        self.store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// After an evaluation: fetch in the background if the note uses a
+    /// currency and the cache is missing or a day old (PRD C9).
+    pub fn maybe_refresh(&self, app: &AppHandle, text: &str) {
+        let enabled = app
+            .state::<SettingsState>()
+            .view()
+            .settings
+            .currency_refresh;
+        if !self.lock().start_refresh(text, enabled, now_secs()) {
+            return;
+        }
+        let fetcher = Arc::clone(&self.fetcher);
+        let app = app.clone();
+        std::thread::spawn(move || {
+            let result = fetcher.fetch();
+            let state = app.state::<RatesState>();
+            let finished = state.lock().finish(result, now_secs());
+            match finished {
+                Ok(new_rates) => {
+                    app.state::<Arc<Evaluator>>().set_rates(Some(new_rates));
+                    emit(&app, rates::RATES_UPDATED, state.lock().status());
+                }
+                Err(e) => eprintln!("notecal: {e}"),
+            }
+        });
+    }
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
+pub fn rates_path(cache_dir: &Path) -> PathBuf {
+    cache_dir.join("notecal").join("rates.json")
+}
+
+#[tauri::command]
+pub fn rates_status(state: State<'_, RatesState>) -> RatesStatus {
+    state.lock().status()
 }
 
 #[tauri::command]

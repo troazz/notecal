@@ -1,6 +1,7 @@
 mod commands;
 mod evaluator;
 mod notes;
+mod rates;
 mod settings;
 mod shell;
 mod state;
@@ -11,7 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use commands::{Notes, SettingsState, ThemeSource};
+use commands::{Notes, RatesState, SettingsState, ThemeSource};
 use evaluator::{EvalRequest, EvalResponse, Evaluator};
 use tauri::{Manager, State};
 use tauri_plugin_window_state::StateFlags;
@@ -29,13 +30,19 @@ struct Startup {
 #[tauri::command]
 async fn evaluate(
     request: EvalRequest,
+    app: tauri::AppHandle,
     evaluator: State<'_, Arc<Evaluator>>,
 ) -> Result<Option<EvalResponse>, String> {
     evaluator.announce(request.version);
     let evaluator = Arc::clone(&evaluator);
-    tauri::async_runtime::spawn_blocking(move || evaluator.evaluate(&request))
+    let text = request.text.clone();
+    let response = tauri::async_runtime::spawn_blocking(move || evaluator.evaluate(&request))
         .await
-        .map_err(|e| format!("evaluation task failed: {e}"))
+        .map_err(|e| format!("evaluation task failed: {e}"))?;
+    if response.as_ref().is_some_and(|r| r.uses_currency) {
+        app.state::<RatesState>().maybe_refresh(&app, &text);
+    }
+    Ok(response)
 }
 
 /// Called by the UI when the editor first has focus. Logs time since `main`
@@ -108,6 +115,13 @@ fn main() {
             let settings = SettingsState::new(commands::settings_path(&config_dir));
             let current = settings.view().settings;
             shell::apply_window_settings(app.handle(), &current);
+            let rates = RatesState::new(
+                rates::RatesStore::load(commands::rates_path(&paths.cache_dir()?)),
+                Arc::new(rates::ErApi),
+            );
+            app.state::<Arc<Evaluator>>()
+                .set_rates(rates.initial_rates());
+            app.manage(rates);
             if let Err(e) = shell::create_tray(app.handle()) {
                 // No tray host or no appindicator library: not fatal.
                 eprintln!("notecal: no tray icon: {e}");
@@ -176,6 +190,7 @@ fn main() {
             commands::save_settings,
             shell::shortcut_status,
             shell::quit,
+            commands::rates_status,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start the notecal window");

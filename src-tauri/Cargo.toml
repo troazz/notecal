@@ -24,6 +24,7 @@ toml = "1.2.0"
 tauri-plugin-single-instance = "2.5.5"
 tauri-plugin-window-state = "2.5.0"
 tauri-plugin-global-shortcut = "2.4.1"
+ureq = { version = "3.5.1", features = ["json"] }
 
 [lints]
 workspace = true

@@ -19,7 +19,11 @@ function setup() {
   });
   const flushFrame = () => frames.splice(0).forEach((cb) => cb());
   const respond = (i: number, version: number) =>
-    resolvers[i]!({ version, lines: [{ display: String(version), copy: null, error: null }] });
+    resolvers[i]!({
+      version,
+      lines: [{ display: String(version), copy: null, error: null }],
+      uses_currency: false,
+    });
   const tick = () => new Promise((r) => setTimeout(r, 0));
   const skip = (i: number) => resolvers[i]!(null);
   return {

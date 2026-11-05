@@ -16,6 +16,9 @@
   let showSwitcher = $state(false);
   let noteName = $state<string | null>(null);
   let notice = $state<string | null>(null);
+  /** PRD C9 status line: shown only when the note uses a currency. */
+  let usesCurrency = $state(false);
+  let ratesDate = $state<string | null>(null);
 
   let editor: EditorController | undefined;
   let session: NoteSession | undefined;
@@ -121,6 +124,9 @@
 
   onMount(() => {
     const appWindow = getCurrentWindow();
+    invoke<{ date: string | null }>("rates_status")
+      .then((status) => (ratesDate = status.date))
+      .catch((error: unknown) => console.error("rates_status failed", error));
     settingsApi
       .get()
       .then((view) => {
@@ -129,6 +135,10 @@
       .catch((error: unknown) => report(String(error)));
     const stops = [
       settingsApi.onChanged(applySettings),
+      listen<{ date: string | null }>("rates-updated", (event) => {
+        ratesDate = event.payload.date;
+        editor?.reevaluate();
+      }),
       notesApi.onDiskChange((event) => void session?.diskChanged(event)),
       appWindow.onFocusChanged(({ payload: focused }) => {
         if (!focused) void persist();
@@ -200,7 +210,17 @@
 <svelte:window onkeydown={onKeydown} />
 
 <main>
-  <Editor {timer} onready={onEditorReady} onedit={() => session?.edited()} />
+  <Editor
+    {timer}
+    onready={onEditorReady}
+    onedit={() => session?.edited()}
+    onresults={(response) => (usesCurrency = response.uses_currency)}
+  />
+  {#if usesCurrency}
+    <div class="status" title="Exchange rates by open.er-api.com">
+      Rates: {ratesDate ?? "none yet"}
+    </div>
+  {/if}
   {#if showSwitcher}
     <Switcher
       current={noteName}
@@ -270,6 +290,14 @@
     background: var(--bg-color);
     color: var(--text-color);
     cursor: pointer;
+  }
+  .status {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.25rem;
+    color: var(--muted-color);
+    font: 11px system-ui, sans-serif;
+    pointer-events: none;
   }
   .stats {
     position: absolute;
