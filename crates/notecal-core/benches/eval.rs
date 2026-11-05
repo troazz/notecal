@@ -56,7 +56,7 @@ fn engine(c: &mut Criterion) {
 
     let edited = note.replace("3 days 4 hours", "3 days 5 hours");
     let mut engine = Engine::default();
-    engine.evaluate(&note, &settings, Some(&rates));
+    let _ = engine.evaluate(&note, &settings, Some(&rates));
     let mut flip = false;
     c.bench_function("note_200_edit_last_line", |b| {
         b.iter(|| {

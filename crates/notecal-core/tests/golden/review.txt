@@ -1,0 +1,26 @@
+;; Regressions from the M1 review
+;; trailing comments (# and //) never change a line's own result
+1 # c => 1
+2 # d => 2
+3 // e => 3
+total => 6
+---
+;; group separators must form a valid number on both sides
+1234,567
+0.5,123
+max(1,2)
+1,234,567.5 => 1,234,567.5
+---
+;; `as % of` binds within its own parentheses
+10 + (5 as % of 20) => 10.25
+(5 as % of 20) * 2 => 50%
+---
+;; hidden variables and embedded assignments are not reachable from user text
+y = _prev = 7
+1 + (_sum = 5)
+1 + (z = 5)
+_prev
+---
+;; sub-cent currency rounds instead of switching to scientific notation
+0.004 IDR => 0 IDR
+-0.004 IDR => 0 IDR

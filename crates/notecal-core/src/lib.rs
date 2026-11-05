@@ -44,11 +44,19 @@ impl Locale {
             Locale::Id => '.',
         }
     }
+
+    fn decimal_separator(self) -> char {
+        match self {
+            Locale::En => '.',
+            Locale::Id => ',',
+        }
+    }
 }
 
 /// Evaluation settings that come from the user's preferences.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Settings {
+    /// Separators for numbers in input and output.
     pub locale: Locale,
     /// Maximum decimals shown for non-currency results.
     pub precision: u8,
@@ -71,10 +79,18 @@ pub struct Rates {
 
 impl Rates {
     /// Builds a rate table where each value is units of that currency per 1 USD.
-    pub fn from_per_usd(per_usd: HashMap<String, f64>) -> Self {
+    ///
+    /// Entries that are not finite and positive are dropped: they cannot
+    /// convert anything, and a NaN would make two equal tables compare
+    /// unequal, which defeats the engine's cache.
+    #[must_use]
+    pub fn from_per_usd(mut per_usd: HashMap<String, f64>) -> Self {
+        per_usd.retain(|_, rate| rate.is_finite() && *rate > 0.0);
         Self { per_usd }
     }
 
+    /// Units of `code` per 1 USD, if known.
+    #[must_use]
     pub fn get(&self, code: &str) -> Option<f64> {
         self.per_usd.get(code).copied()
     }
@@ -112,6 +128,7 @@ impl LineResult {
 }
 
 /// Evaluates every line of `text` with a fresh engine.
+#[must_use]
 pub fn evaluate_note(text: &str, settings: &Settings, rates: Option<&Rates>) -> Vec<LineResult> {
     Engine::default().evaluate(text, settings, rates)
 }
@@ -161,32 +178,40 @@ impl Engine {
     /// Evaluates every line of `text`, top to bottom.
     ///
     /// Returns exactly one entry per line (`text.split('\n')`). Lines above
-    /// the first line that changed since the previous call are reused.
+    /// the first line that changed since the previous call are reused,
+    /// except lines that hit the time limit, which are always retried.
+    #[must_use]
     pub fn evaluate(
         &mut self,
         text: &str,
         settings: &Settings,
         rates: Option<&Rates>,
     ) -> Vec<LineResult> {
-        let config = (settings.clone(), rates.cloned());
-        if self.config.as_ref() != Some(&config) {
+        let same_config = self
+            .config
+            .as_ref()
+            .is_some_and(|(s, r)| s == settings && r.as_ref() == rates);
+        if !same_config {
             self.lines.clear();
             self.builtin_names.clear();
             self.base = Some(new_context(settings, rates));
-            self.config = Some(config);
+            self.config = Some((settings.clone(), rates.cloned()));
         }
         let base = self.base.as_ref().expect("set above");
 
         let lines: Vec<&str> = text.split('\n').collect();
         let feeds_total = preprocess::feeds_total(&lines);
         // A line is reusable when its text is the same and so is whether a
-        // total below needs it (typing `total` re-evaluates the block).
+        // total below needs it (typing `total` re-evaluates the block). A
+        // timed-out line is not: whether it finishes depends on machine load.
         let unchanged = self
             .lines
             .iter()
             .zip(lines.iter().zip(&feeds_total))
             .take_while(|(cached, (line, feeds))| {
-                cached.text == **line && cached.feeds_total == **feeds
+                cached.text == **line
+                    && cached.feeds_total == **feeds
+                    && cached.result.error.as_deref() != Some(TOO_LONG)
             })
             .count();
         self.lines.truncate(unchanged);
@@ -283,6 +308,7 @@ impl LineEval<'_> {
             LineKind::Comment => return LineResult::default(),
             LineKind::Expr => {}
         }
+        let line = preprocess::strip_comment(line);
         match self.evaluate_expr(line, feeds_total, context, references) {
             Ok(Some(result)) => result,
             Ok(None) => LineResult::default(),
@@ -304,16 +330,21 @@ impl LineEval<'_> {
         if let Some((name, _)) = assignment {
             self.check_name(name)?;
         }
-        preprocess::check_group_separators(expr, self.settings.locale.group_separator())?;
+        let locale = self.settings.locale;
+        preprocess::check_group_separators(
+            expr,
+            locale.group_separator(),
+            locale.decimal_separator(),
+        )?;
         preprocess::check_parens(expr)?;
+        preprocess::check_no_assignment(expr)?;
         let rewritten = preprocess::rewrite_references(
             expr,
             references.has_prev,
             references.block_len,
             references.sum_valid,
         )?;
-        let fend_expr =
-            preprocess::rewrite_percent_change(&preprocess::rewrite_as_percent_of(&rewritten.expr));
+        let fend_expr = preprocess::rewrite_percentages(&rewritten.expr);
 
         // `_prev = name = (expr)` stores the result for `prev` and in the
         // user's variable. Counted lines with a total below them also add it to
@@ -340,6 +371,10 @@ impl LineEval<'_> {
                 Err(_) => {
                     // Either the line itself failed, or its units cannot be
                     // added to the total. Evaluate it alone to tell which.
+                    // Safe to repeat: if the failed run got as far as
+                    // `_prev = name = (…)`, running it again stores the same
+                    // values; `_sum` was not changed because its addition
+                    // is what failed.
                     let output = run_fend(&store, context)?;
                     references.sum_valid = false;
                     output
