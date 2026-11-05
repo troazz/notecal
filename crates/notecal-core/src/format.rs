@@ -78,21 +78,28 @@ pub(crate) fn format_result(
     let r_int = if r_int.is_empty() { "0" } else { r_int };
     let rounds_to_zero = r_int == "0" && r_frac.is_empty();
 
-    let sign = if negative && nonzero { "-" } else { "" };
-    let (display_number, copy_number) =
-        if r_int.len() > MAX_INTEGER_DIGITS || (rounds_to_zero && nonzero) {
-            let sci = scientific(int, frac, places.max(1), decimal);
-            (sci.clone(), sci)
-        } else {
-            let join = |int: String| {
-                if r_frac.is_empty() {
-                    int
-                } else {
-                    format!("{int}{decimal}{r_frac}")
-                }
-            };
-            (join(group_digits(r_int, group)), join(r_int.to_string()))
+    // Tiny non-zero values switch to scientific notation so they do not read
+    // as zero; currencies round to 0 like any amount below a cent.
+    let scientific_form =
+        r_int.len() > MAX_INTEGER_DIGITS || (rounds_to_zero && nonzero && !currency);
+    let sign = if negative && (scientific_form || !rounds_to_zero) {
+        "-"
+    } else {
+        ""
+    };
+    let (display_number, copy_number) = if scientific_form {
+        let sci = scientific(int, frac, places.max(1), decimal);
+        (sci.clone(), sci)
+    } else {
+        let join = |int: String| {
+            if r_frac.is_empty() {
+                int
+            } else {
+                format!("{int}{decimal}{r_frac}")
+            }
         };
+        (join(group_digits(r_int, group)), join(r_int.to_string()))
+    };
     Formatted {
         display: format!("{sign}{display_number}{unit}"),
         copy: format!("{sign}{copy_number}"),

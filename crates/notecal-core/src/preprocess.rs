@@ -32,6 +32,19 @@ pub(crate) fn classify(line: &str) -> LineKind {
     }
 }
 
+/// Drops a trailing `#` or `//` comment.
+///
+/// Expressions are spliced into larger fend input, where a `#` would
+/// comment out the rest of that input, so comments never reach fend.
+pub(crate) fn strip_comment(line: &str) -> &str {
+    let end = [line.find('#'), line.find("//")]
+        .into_iter()
+        .flatten()
+        .min()
+        .unwrap_or(line.len());
+    line[..end].trim_end()
+}
+
 /// Words with a meaning in notecal or fend that a variable may not take.
 /// Built-in units, functions and constants are rejected separately by
 /// asking fend whether the name already evaluates.
@@ -54,29 +67,64 @@ pub(crate) fn split_assignment(line: &str) -> Option<(&str, &str)> {
     is_name.then(|| (name, rhs.trim()))
 }
 
-/// Rejects a group separator that is not followed by exactly three digits.
+/// Rejects a number whose group separators do not form valid thousands
+/// groups: `1,234,567` is fine; `1,5`, `1234,567` and `0.5,123` are not.
 ///
 /// fend silently drops such separators (`1,5` becomes `15` in `en`), which
 /// would show a confidently wrong result.
-pub(crate) fn check_group_separators(expr: &str, group: char) -> Result<(), String> {
+pub(crate) fn check_group_separators(expr: &str, group: char, decimal: char) -> Result<(), String> {
+    let chars: Vec<char> = expr.chars().collect();
+    let digit_at = |i: usize| chars.get(i).is_some_and(char::is_ascii_digit);
+    let mut i = 0;
+    while i < chars.len() {
+        let starts_number =
+            digit_at(i) && (i == 0 || !(chars[i - 1].is_alphanumeric() || chars[i - 1] == '_'));
+        if !starts_number {
+            i += 1;
+            continue;
+        }
+        // A number: digits, plus separators that sit between two digits.
+        let mut end = i;
+        while digit_at(end) || ((chars[end] == group || chars[end] == decimal) && digit_at(end + 1))
+        {
+            end += 1;
+            if end == chars.len() {
+                break;
+            }
+        }
+        let number = &chars[i..end];
+        if number.contains(&group) && !is_grouped_number(number, group, decimal) {
+            return Err(format!(
+                "'{group}' groups thousands, so write numbers like 1{group}234{group}567"
+            ));
+        }
+        i = end.max(i + 1);
+    }
+    Ok(())
+}
+
+/// `\d{1,3}(G\d{3})+(D\d+)?`
+fn is_grouped_number(number: &[char], group: char, decimal: char) -> bool {
+    let (int, frac) = match number.iter().position(|&c| c == decimal) {
+        Some(p) => (&number[..p], Some(&number[p + 1..])),
+        None => (number, None),
+    };
+    let mut groups = int.split(|&c| c == group);
+    let first_ok = groups.next().is_some_and(|g| (1..=3).contains(&g.len()));
+    let rest_ok = groups.all(|g| g.len() == 3 && g.iter().all(char::is_ascii_digit));
+    let frac_ok = frac.is_none_or(|f| !f.is_empty() && f.iter().all(char::is_ascii_digit));
+    first_ok && rest_ok && frac_ok
+}
+
+/// Rejects `=` anywhere except a single leading `name =`, which the caller
+/// has already split off. An embedded assignment would bypass the reserved
+/// name check (`1 + (m = 5)` would redefine metres).
+pub(crate) fn check_no_assignment(expr: &str) -> Result<(), String> {
     let chars: Vec<char> = expr.chars().collect();
     for (i, &c) in chars.iter().enumerate() {
-        if c != group {
-            continue;
-        }
-        let digit_before = i > 0 && chars[i - 1].is_ascii_digit();
-        let digit_after = chars.get(i + 1).is_some_and(char::is_ascii_digit);
-        if !(digit_before && digit_after) {
-            continue;
-        }
-        let run = chars[i + 1..]
-            .iter()
-            .take_while(|c| c.is_ascii_digit())
-            .count();
-        if run != 3 {
-            return Err(format!(
-                "'{group}' separates thousands here, so it must be followed by exactly three digits"
-            ));
+        let comparison = (i > 0 && "=<>!".contains(chars[i - 1])) || chars.get(i + 1) == Some(&'=');
+        if c == '=' && !comparison {
+            return Err("Only one assignment per line, at the start: name = …".into());
         }
     }
     Ok(())
@@ -151,6 +199,11 @@ pub(crate) fn rewrite_references(
                     out.push_str(SUM_VAR);
                 }
             }
+            w if w.starts_with('_') => {
+                return Err(format!(
+                    "'{w}' is reserved: names starting with '_' are internal"
+                ));
+            }
             _ => out.push_str(word),
         }
         word.clear();
@@ -173,7 +226,8 @@ pub(crate) fn rewrite_references(
 
 /// True when the line uses `sum`, `total` or `avg` (whole words only).
 fn uses_total(line: &str) -> bool {
-    line.split(|c: char| !(c.is_alphanumeric() || c == '_'))
+    strip_comment(line)
+        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
         .any(|w| matches!(w, "sum" | "total" | "avg"))
 }
 
@@ -264,10 +318,10 @@ fn tokenize(expr: &str) -> Vec<Tok> {
     toks
 }
 
-/// Rewrites `A + B%` to `(A) * (1 + B/100)` and `A - B%` likewise, at every
-/// parenthesis level. `A` is everything before the operator at that level.
+/// Rewrites `A + B%` to `(A) * (1 + B/100)` and `A - B%` likewise, and
+/// `A as % of B` to `((A) / (B)) to %`, at every parenthesis level. `A` is everything before the operator at that level.
 /// The percent must end its level, optionally followed by `in …`/`to …`.
-pub(crate) fn rewrite_percent_change(expr: &str) -> String {
+pub(crate) fn rewrite_percentages(expr: &str) -> String {
     let toks = tokenize(expr);
     let mut pos = 0;
     let mut out = rewrite_level(&toks, &mut pos);
@@ -326,7 +380,7 @@ fn rewrite_level(toks: &[Tok], pos: &mut usize) -> String {
             }
         }
     }
-    out
+    rewrite_as_percent_of(&out)
 }
 
 fn ends_level(next: Option<&Tok>) -> bool {
@@ -384,12 +438,30 @@ mod tests {
 
     #[test]
     fn group_separators_need_three_digits() {
-        assert!(check_group_separators("4,500,000 IDR", ',').is_ok());
-        assert!(check_group_separators("1,5", ',').is_err());
-        assert!(check_group_separators("1,5000", ',').is_err());
-        assert!(check_group_separators("f(a, b)", ',').is_ok());
-        assert!(check_group_separators("4.500.000", '.').is_ok());
-        assert!(check_group_separators("1.5", '.').is_err());
+        let en = |e: &str| check_group_separators(e, ',', '.');
+        let id = |e: &str| check_group_separators(e, '.', ',');
+        assert!(en("4,500,000 IDR").is_ok());
+        assert!(en("1,234,567.5").is_ok());
+        assert!(en("1,5").is_err());
+        assert!(en("1,5000").is_err());
+        assert!(en("1234,567").is_err());
+        assert!(en("0.5,123").is_err());
+        assert!(en("f(a, b)").is_ok());
+        assert!(en("x1,000").is_ok());
+        assert!(id("4.500.000").is_ok());
+        assert!(id("4.500.000,25").is_ok());
+        assert!(id("1.5").is_err());
+    }
+
+    #[test]
+    fn comments_and_embedded_assignments() {
+        assert_eq!(strip_comment("2 # d"), "2");
+        assert_eq!(strip_comment("3 // e # f"), "3");
+        assert_eq!(strip_comment("4 / 2"), "4 / 2");
+        assert!(check_no_assignment("1 + (z = 5)").is_err());
+        assert!(check_no_assignment("a == b").is_ok());
+        assert!(check_no_assignment("1 <= 2").is_ok());
+        assert!(rewrite_references("_prev + 1", true, 0, true).is_err());
     }
 
     #[test]
@@ -400,23 +472,23 @@ mod tests {
     }
 
     #[test]
-    fn percent_change_rewrites() {
-        assert_eq!(rewrite_percent_change("50 + 10%"), "(50) * (1 + 10/100)");
-        assert_eq!(rewrite_percent_change("50 - 10%"), "(50) * (1 - 10/100)");
+    fn percentage_rewrites() {
+        assert_eq!(rewrite_percentages("50 + 10%"), "(50) * (1 + 10/100)");
+        assert_eq!(rewrite_percentages("50 - 10%"), "(50) * (1 - 10/100)");
         assert_eq!(
-            rewrite_percent_change("2 * (50 + 10%)"),
+            rewrite_percentages("2 * (50 + 10%)"),
             "2 * ((50) * (1 + 10/100))"
         );
         assert_eq!(
-            rewrite_percent_change("50 USD + 10% in IDR"),
+            rewrite_percentages("50 USD + 10% in IDR"),
             "(50 USD) * (1 + 10/100) in IDR"
         );
     }
 
     #[test]
-    fn percent_change_leaves_other_percent_forms() {
+    fn percentages_leave_other_percent_forms() {
         for expr in ["20% of 50", "10% * 3", "50 + 10% of 20", "-10%", "2 * -10%"] {
-            assert_eq!(rewrite_percent_change(expr), expr, "{expr}");
+            assert_eq!(rewrite_percentages(expr), expr, "{expr}");
         }
     }
 
