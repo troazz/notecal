@@ -1,3 +1,15 @@
+<script lang="ts" module>
+  /** What the app can do with the editor once it exists. */
+  export interface EditorController {
+    getText: () => string;
+    /** Replaces the whole text; the cursor moves to `cursor`, or stays put (clamped). */
+    setText: (text: string, cursor?: number) => void;
+    getCursor: () => number;
+    setCursor: (cursor: number) => void;
+    focus: () => void;
+  }
+</script>
+
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
@@ -7,7 +19,15 @@
   import type { KeystrokeTimer } from "./editor/perf";
   import type { EvalResponse } from "./editor/types";
 
-  let { initialText, timer }: { initialText: string; timer: KeystrokeTimer } = $props();
+  let {
+    timer,
+    onready,
+    onedit,
+  }: {
+    timer: KeystrokeTimer;
+    onready: (controller: EditorController) => void;
+    onedit: () => void;
+  } = $props();
 
   let host: HTMLDivElement;
 
@@ -32,13 +52,13 @@
 
     view = new EditorView({
       parent: host,
-      doc: initialText,
       extensions: [
         minimalSetup,
         results,
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
           scheduler.changed();
+          onedit();
           const typed = update.transactions.some(
             (tr) => tr.isUserEvent("input") || tr.isUserEvent("delete"),
           );
@@ -47,7 +67,25 @@
       ],
     });
 
-    scheduler.changed();
+    const editor = view;
+    onready({
+      getText: () => editor.state.doc.toString(),
+      setText: (text, cursor) => {
+        const anchor = Math.min(cursor ?? editor.state.selection.main.head, text.length);
+        editor.dispatch({
+          changes: { from: 0, to: editor.state.doc.length, insert: text },
+          selection: { anchor },
+          scrollIntoView: true,
+        });
+      },
+      getCursor: () => editor.state.selection.main.head,
+      setCursor: (cursor) =>
+        editor.dispatch({
+          selection: { anchor: Math.min(cursor, editor.state.doc.length) },
+          scrollIntoView: true,
+        }),
+      focus: () => editor.focus(),
+    });
     view.focus();
     requestAnimationFrame(() => void invoke("mark_ready"));
 

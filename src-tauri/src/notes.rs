@@ -20,6 +20,7 @@ const MAX_NAME_BYTES: usize = 120;
 
 /// One entry in the note list.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NoteInfo {
     pub name: String,
     /// Last modification, in milliseconds since the Unix epoch.
