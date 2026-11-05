@@ -143,10 +143,13 @@ enum DiskChange  { Unchanged, Changed(String), Deleted }
 - **Validate**: Vitest for the tokenizer (numbers, keywords, comments, assignment names). Manual: highlight, search (Ctrl+F), multi-cursor (Ctrl+click), error hover on `m = 5`, each copy path.
 - **Done**: shortcuts are Mod+Shift+C (copy result as shown), Mod+Shift+B (bare number, E8), Mod+Shift+A (announce, E9); click copies as shown, Alt-click the bare number. Error markers are hidden on the cursor's line so half-typed input does not flicker; the reason shows as the marker's tooltip. Checked in the release build: highlighting, error marker, Ctrl+F, both copy shortcuts.
 
-### Task 7: Themes (Omarchy and user palettes)
+### Task 7: Themes (Omarchy and user palettes) ✅ (Omarchy + built-in; user files move to M4)
 - **Action**: `theme.rs`: parse a palette (`mode`, `background`, `foreground`, `accent`, `selection`, `muted`, `red`, `yellow`, `green`, `cyan`, `blue`, `magenta`; unknown keys ignored, missing keys fall back to the built-in palette of the same `mode`, invalid colours rejected). Auto source: `~/.local/state/omarchy/current/theme/colors.toml` if it exists, else built-in. Watch the Omarchy `current` directory and `~/.config/notecal/themes/` with the existing debouncer; emit `theme-changed` with the palette. Command `get_theme`. UI `theme.ts` sets CSS variables on `:root`; the syntax `HighlightStyle` and results use only those variables. Role map: number → yellow, unit → cyan, variable → foreground, keyword → magenta, operator → blue, comment/header → muted, result → muted, error → red, selection → selection.
 - **Mirror**: `notes.rs` validation and tests; watcher from Task 3.
 - **Validate**: Rust tests: Omarchy `colors.toml` sample parses; missing keys fall back; bad hex rejected; auto picks Omarchy when present. Manual: `omarchy theme set <other>` repaints notecal without restart; idle CPU unchanged.
+
+- **Done**: `theme.rs` parses palettes (invalid colours dropped so they fall back; mode inferred from the background if missing) and follows Omarchy by watching `~/.local/state/omarchy/current` for the `theme` folder swap and `theme.name` write that `omarchy theme set` performs. `ui/src/theme.ts` applies the built-in palette before mount (no flash), then the followed theme; the system light/dark switch still applies when no theme is followed. Checked: the app starts in ethereal; a simulated swap to catppuccin-latte (isolated HOME) repaints live; idle CPU unchanged (~1%).
+- **Moved to M4**: user theme files in `~/.config/notecal/themes/` need the theme picker (A6) to be selectable, so they ship with it. The parser they will use is the one here.
 
 ### Task 8: Contrast check and wrap-up
 - **Action**: Measure text, result, comment and highlight colours against both backgrounds; adjust any below 4.5:1 (3:1 for the gutter marker). Record ratios in the plan. Run `/ecc:rust-review` and `/ecc:code-review`.

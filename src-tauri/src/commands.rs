@@ -9,6 +9,7 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::notes::{DiskChange, NoteInfo, NoteStore, SaveOutcome};
 use crate::state::{self, UiState};
+use crate::theme::{self, Theme};
 
 /// Shown in the first note on a fresh install (the PRD's example note).
 const SCRATCH_NAME: &str = "Scratch";
@@ -175,6 +176,33 @@ pub fn delete_note(name: String, notes: State<'_, Notes>) -> Result<(), String> 
         inner.open = None;
     }
     Ok(())
+}
+
+/// Where "auto" looks for Omarchy's current theme.
+pub struct ThemeSource {
+    pub omarchy_current: PathBuf,
+}
+
+impl ThemeSource {
+    /// Handles watch events in Omarchy's current folder.
+    pub fn on_paths_changed(&self, app: &AppHandle, paths: &[PathBuf]) {
+        if paths
+            .iter()
+            .any(|p| theme::is_theme_swap(&self.omarchy_current, p))
+        {
+            emit(
+                app,
+                theme::THEME_CHANGED,
+                theme::load_auto(&self.omarchy_current),
+            );
+        }
+    }
+}
+
+/// The palette to use, or `None` for the built-in one.
+#[tauri::command]
+pub fn get_theme(source: State<'_, ThemeSource>) -> Option<Theme> {
+    theme::load_auto(&source.omarchy_current)
 }
 
 #[tauri::command]
