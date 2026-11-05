@@ -121,9 +121,10 @@ background = true             # close hides to tray; Quit from tray
 - **Validate**: Manual: size/position restored after restart; always-on-top toggles; on Wayland the shortcut is not registered and Settings explains why.
 - **Done / finding**: on Hyprland the app cannot set its position, keep itself on top, or register global keys, and the window-state plugin saved a stale size plus `maximized: true`. So on Wayland the window-state and global-shortcut plugins are not loaded; `docs/linux-setup.md` gives the Hyprland window rule (float, size, center, pin) in Omarchy's Lua form and classic form. On X11/macOS: window-state (visibility excluded) and the global shortcut from settings; `always_on_top` applied from settings and toggled with Mod+Shift+T (saved). `shortcut_status` tells the Settings screen what applies. X11/macOS paths compile but are untested here (Wayland-only machine) — check at Gate 2.
 
-### Task 4: Tray and background mode (A3)
+### Task 4: Tray and background mode (A3) ✅
 - **Action**: tray icon and menu; close → hide when `background` is on.
 - **Validate**: Manual: tray menu works where the bar shows tray icons; with no tray host, closing still behaves (if `background` is on and no tray is visible, `--toggle` still shows the window). Idle CPU unchanged.
+- **Done**: the tray item registers with the Omarchy shell's StatusNotifierWatcher (it sits in the bar's collapsed tray, behind `<`). Left click toggles; menu has Show/Hide and Quit. Quit asks the UI to save (`quit-requested`), the UI calls `quit`; the process exits after 3 s regardless. Closing the window hides it when `background = true` (checked: process stays, `--toggle` shows it again). Tray clicks themselves need a human check (no pointer automation here).
 
 ### Task 5: Currency rates (C9)
 - **Action**: `rates.rs` with an injectable fetcher; cache load/save; refresh policy; evaluator wiring; `rates-updated` event; engine "No exchange rates yet"; status line; attribution.

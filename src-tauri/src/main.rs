@@ -108,6 +108,10 @@ fn main() {
             let settings = SettingsState::new(commands::settings_path(&config_dir));
             let current = settings.view().settings;
             shell::apply_window_settings(app.handle(), &current);
+            if let Err(e) = shell::create_tray(app.handle()) {
+                // No tray host or no appindicator library: not fatal.
+                eprintln!("notecal: no tray icon: {e}");
+            }
             app.state::<Arc<Evaluator>>().set_settings(current.engine());
             let notes = Notes::new(
                 commands::resolve_notes_dir(&current, &paths.data_dir()?),
@@ -171,6 +175,7 @@ fn main() {
             commands::get_settings,
             commands::save_settings,
             shell::shortcut_status,
+            shell::quit,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start the notecal window");

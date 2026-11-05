@@ -5,7 +5,11 @@
 
 use std::sync::Mutex;
 
-use tauri::{AppHandle, Manager, State, WebviewWindow};
+use std::time::Duration;
+
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 use crate::settings::AppSettings;
 
@@ -96,6 +100,62 @@ pub fn shortcut_status(status: State<'_, ShortcutStatus>) -> String {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone()
+}
+
+/// Asks the UI to save, then quit; the UI calls `quit` when done.
+pub const QUIT_REQUESTED: &str = "quit-requested";
+/// Quit anyway if the UI does not answer (e.g. it is stuck).
+const QUIT_GRACE: Duration = Duration::from_secs(3);
+
+/// Tray icon with Show/Hide and Quit (PRD A3). Without a tray host the icon
+/// simply does not appear; `notecal --toggle` still works.
+pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
+    let toggle_item = MenuItem::with_id(app, "toggle", "Show / Hide notecal", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", "Quit notecal", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&toggle_item, &quit_item])?;
+    let mut tray = TrayIconBuilder::with_id("main")
+        .tooltip("notecal")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "toggle" => toggle(app),
+            "quit" => request_quit(app),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                toggle(tray.app_handle());
+            }
+        });
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+    tray.build(app)?;
+    Ok(())
+}
+
+/// Lets the UI save pending edits before the process exits.
+pub fn request_quit(app: &AppHandle) {
+    if app.emit(QUIT_REQUESTED, ()).is_err() {
+        app.exit(0);
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(QUIT_GRACE);
+        app.exit(0);
+    });
+}
+
+/// Called by the UI once edits are saved.
+#[tauri::command]
+pub fn quit(app: AppHandle) {
+    app.exit(0);
 }
 
 /// What a second `notecal` launch asks the running instance to do.
