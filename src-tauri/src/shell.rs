@@ -102,6 +102,23 @@ pub fn shortcut_status(status: State<'_, ShortcutStatus>) -> String {
         .clone()
 }
 
+/// Whether a tray icon exists, so closing the window may hide it.
+#[derive(Default)]
+pub struct TrayState(std::sync::atomic::AtomicBool);
+
+impl TrayState {
+    pub fn set_available(&self) {
+        self.0.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+/// Without a tray icon, a hidden window could only come back through a
+/// compositor binding, so the UI closes instead of hiding.
+#[tauri::command]
+pub fn tray_available(tray: State<'_, TrayState>) -> bool {
+    tray.0.load(std::sync::atomic::Ordering::SeqCst)
+}
+
 /// Asks the UI to save, then quit; the UI calls `quit` when done.
 pub const QUIT_REQUESTED: &str = "quit-requested";
 /// Quit anyway if the UI does not answer (e.g. it is stuck).
@@ -139,8 +156,16 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Lets the UI save pending edits before the process exits.
+/// Set by the UI when it could not save, so the forced quit is skipped.
+#[derive(Default)]
+pub struct QuitState(std::sync::atomic::AtomicBool);
+
+/// Lets the UI save pending edits before the process exits. The process
+/// quits anyway after a grace period unless the UI cancels (failed save).
 pub fn request_quit(app: &AppHandle) {
+    app.state::<QuitState>()
+        .0
+        .store(false, std::sync::atomic::Ordering::SeqCst);
     if app.emit(QUIT_REQUESTED, ()).is_err() {
         app.exit(0);
         return;
@@ -148,8 +173,20 @@ pub fn request_quit(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(QUIT_GRACE);
-        app.exit(0);
+        if !app
+            .state::<QuitState>()
+            .0
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            app.exit(0);
+        }
     });
+}
+
+/// Called by the UI when edits could not be saved: stay open.
+#[tauri::command]
+pub fn cancel_quit(state: State<'_, QuitState>) {
+    state.0.store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
 /// Called by the UI once edits are saved.

@@ -145,9 +145,10 @@ background = true             # close hides to tray; Quit from tray
 - **Validate**: Vitest on the source; manual: typing `elec` offers `electricity`; numbers never trigger it. Typing p95 checked by hand once (no scripted runs).
 - **Done**: Tab accepts (Enter always makes a new line), arrows move, Esc closes the list before it would hide the window. Variables only after their assignment line; after a number only units and currencies; nothing in comments. Checked live: `elec` → Tab → `electricity * 2` = 700,000.
 
-### Task 9: Wrap-up
+### Task 9: Wrap-up ✅ (CI after push)
 - **Action**: `/ecc:rust-review` and `/ecc:code-review`, fix real findings, update PRD/plan.
 - **Validate**: full validation below; CI green.
+- **Reviews (2026-11-05).** Rust: a bad `notes_dir` was saved and then aborted the next launch — now `notes_dir` must be empty or absolute, the folder switch is tried before saving (a failed switch saves nothing), a failed switch from a hand edit keeps the old folder, and startup falls back to the default folder with a notice (checked live with a file as `notes_dir`); theme names cannot contain path separators or start with `.`; a panic or spawn failure in the rates thread always ends the attempt; a cache timestamp from the future counts as stale (found a second instance in the retry check through the new test); the window is created at the end of setup (`"create": false`), so no command can reach unmanaged state; closing hides only when a tray icon exists; folder relocation builds the new watch before switching. UI: settings changes are serialised and each builds on the previous one; a rejected value is reset in its field; closing the dialog commits a half-typed field; Tab is trapped and the first control is focused; a hand-edited folder change saves pending edits first; the editor is read-only while no note is open and `start()` cannot overlap; close and Quit stop (and cancel the forced exit) when the last save failed. Not changed: the first Esc after a selection only collapses it (CodeMirror default).
 
 ## Validation
 
@@ -172,9 +173,9 @@ cd ui && bun run tauri build --no-bundle   # manual checks on target/release/not
 
 ## Acceptance
 
-- [ ] All tasks complete
+- [x] All tasks complete
 - [ ] Validation passes locally and in CI
-- [ ] `notecal --toggle` shows/hides a focused window on Hyprland
-- [ ] Currency conversion works online and offline from the cache
-- [ ] Every setting works from the file and the screen
-- [ ] Patterns mirrored, not reinvented
+- [x] `notecal --toggle` shows/hides a focused window on Hyprland
+- [x] Currency conversion works online and offline from the cache
+- [x] Every setting works from the file and the screen
+- [x] Patterns mirrored, not reinvented

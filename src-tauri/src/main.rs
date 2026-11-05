@@ -109,12 +109,13 @@ fn main() {
         .manage(startup)
         .manage(Arc::new(Evaluator::default()))
         .manage(shell::ShortcutStatus::default())
+        .manage(shell::TrayState::default())
+        .manage(shell::QuitState::default())
         .setup(|app| {
             let paths = app.path();
             let config_dir = paths.config_dir()?;
             let settings = SettingsState::new(commands::settings_path(&config_dir));
             let current = settings.view().settings;
-            shell::apply_window_settings(app.handle(), &current);
             let rates = RatesState::new(
                 rates::RatesStore::load(commands::rates_path(&paths.cache_dir()?)),
                 Arc::new(rates::ErApi),
@@ -122,15 +123,20 @@ fn main() {
             app.state::<Arc<Evaluator>>()
                 .set_rates(rates.initial_rates());
             app.manage(rates);
-            if let Err(e) = shell::create_tray(app.handle()) {
-                // No tray host or no appindicator library: not fatal.
-                eprintln!("notecal: no tray icon: {e}");
-            }
             app.state::<Arc<Evaluator>>().set_settings(current.engine());
-            let notes = Notes::new(
-                commands::resolve_notes_dir(&current, &paths.data_dir()?),
-                commands::state_path(&config_dir),
-            )?;
+            let data_dir = paths.data_dir()?;
+            let state_path = commands::state_path(&config_dir);
+            // An unusable notes folder in settings must not stop notecal from starting.
+            let notes = match Notes::new(
+                commands::resolve_notes_dir(&current, &data_dir),
+                state_path.clone(),
+            ) {
+                Ok(notes) => notes,
+                Err(e) => {
+                    settings.add_problem(format!("{e} Using the default notes folder instead."));
+                    Notes::new(commands::notes_dir(&data_dir), state_path)?
+                }
+            };
             app.manage(notes);
             app.state::<Notes>().start_watch(app.handle())?;
             let mut watches = Vec::new();
@@ -177,6 +183,23 @@ fn main() {
                 }
             }
             app.manage(Watches(Mutex::new(watches)));
+
+            // The window is created last, so every command it can call finds
+            // its state already managed.
+            let window_config = app
+                .config()
+                .app
+                .windows
+                .first()
+                .ok_or("tauri.conf.json defines no window")?
+                .clone();
+            tauri::WebviewWindowBuilder::from_config(app.handle(), &window_config)?.build()?;
+            shell::apply_window_settings(app.handle(), &current);
+            match shell::create_tray(app.handle()) {
+                Ok(()) => app.state::<shell::TrayState>().set_available(),
+                // No tray host or no appindicator library: not fatal.
+                Err(e) => eprintln!("notecal: no tray icon: {e}"),
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -196,6 +219,8 @@ fn main() {
             commands::save_settings,
             shell::shortcut_status,
             shell::quit,
+            shell::tray_available,
+            shell::cancel_quit,
             commands::rates_status,
             commands::currency_codes,
         ])

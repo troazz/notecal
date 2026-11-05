@@ -8,6 +8,8 @@
     setCursor: (cursor: number) => void;
     /** Evaluates again, e.g. after locale, precision or rates changed. */
     reevaluate: () => void;
+    /** Read-only while no note is open, so typing is never silently lost. */
+    setReadOnly: (readOnly: boolean) => void;
     focus: () => void;
   }
 </script>
@@ -17,7 +19,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
   import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
-  import { EditorState } from "@codemirror/state";
+  import { Compartment, EditorState } from "@codemirror/state";
   import {
     EditorView,
     crosshairCursor,
@@ -72,7 +74,11 @@
       onError: (error) => console.error("evaluate failed", error),
     });
 
+    const readOnlyMode = new Compartment();
+    let readOnly = false;
+    const readOnlyExtension = () => [EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)];
     const extensions = [
+        readOnlyMode.of(readOnlyExtension()),
         // PRD E4: undo/redo, multiple cursors (Ctrl+click, Alt+drag), search.
         highlightSpecialChars(),
         history(),
@@ -108,6 +114,8 @@
         // A fresh state, not a change: undo history must never carry text
         // from another note (or a replaced version) into this one.
         editor.setState(EditorState.create({ doc: text, selection: { anchor }, extensions }));
+        // The fresh state starts from the initial extensions; keep the current mode.
+        editor.dispatch({ effects: readOnlyMode.reconfigure(readOnlyExtension()) });
         editor.dispatch({ scrollIntoView: true });
         scheduler.changed();
       },
@@ -119,6 +127,10 @@
         }),
       focus: () => editor.focus(),
       reevaluate: () => scheduler.changed(),
+      setReadOnly: (flag) => {
+        readOnly = flag;
+        editor.dispatch({ effects: readOnlyMode.reconfigure(readOnlyExtension()) });
+      },
     });
     view.focus();
     requestAnimationFrame(() => void invoke("mark_ready"));

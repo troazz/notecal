@@ -37,22 +37,62 @@
   }
 
   onMount(() => {
-    void load();
-    dialog.focus();
+    void load().then(() => dialog.querySelector<HTMLElement>("select, input")?.focus());
     const stop = settingsApi.onChanged(() => void load());
     return () => void stop.then((unlisten) => unlisten());
   });
 
+  /** Changes are saved one at a time, each on top of the previous one. */
+  let pending: Promise<void> = Promise.resolve();
+
   /** Saves one change; the backend validates and applies it. */
-  async function update(patch: Partial<AppSettings>) {
-    if (!settings) return;
-    const next = { ...settings, ...patch };
-    try {
-      await onsave(next);
+  function update(patch: Partial<AppSettings>, field?: EventTarget | null): Promise<void> {
+    pending = pending.then(async () => {
+      if (!settings) return;
+      const next = { ...settings, ...patch };
       settings = next;
-    } catch (error) {
-      onerror(String(error));
-      await load();
+      try {
+        await onsave(next);
+      } catch (error) {
+        onerror(String(error));
+        await load();
+        resetField(field);
+      }
+    });
+    return pending;
+  }
+
+  /** After a rejected change, show the saved value again (Svelte keeps the DOM value otherwise). */
+  function resetField(field: EventTarget | null | undefined) {
+    if (!settings || !(field instanceof HTMLElement)) return;
+    const key = field.dataset["key"] as keyof AppSettings | undefined;
+    if (!key) return;
+    const value = settings[key];
+    if (field instanceof HTMLInputElement && field.type === "checkbox") field.checked = Boolean(value);
+    else if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) field.value = String(value);
+  }
+
+  /** Commits a half-typed field (its change event fires on blur), then closes. */
+  async function close() {
+    if (document.activeElement instanceof HTMLElement && dialog.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
+    await pending;
+    onclose();
+  }
+
+  /** Keeps Tab inside the dialog (it is modal). */
+  function trapTab(event: KeyboardEvent) {
+    const focusable = [...dialog.querySelectorAll<HTMLElement>("select, input")];
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
     }
   }
 
@@ -65,16 +105,19 @@
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") {
+    const closeKey = event.key === "Escape" || ((event.ctrlKey || event.metaKey) && event.key === ",");
+    if (closeKey) {
       event.preventDefault();
       event.stopPropagation();
-      onclose();
+      void close();
+    } else if (event.key === "Tab") {
+      trapTab(event);
     }
   }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="backdrop" onmousedown={(e) => e.target === e.currentTarget && onclose()}>
+<div class="backdrop" onmousedown={(e) => e.target === e.currentTarget && void close()}>
   <div
     class="settings"
     role="dialog"
@@ -93,7 +136,8 @@
     {#if settings}
       <div class="grid">
         <label for="s-theme">Theme</label>
-        <select id="s-theme" value={settings.theme} onchange={(e) => void update({ theme: textFrom(e) })}>
+        <select id="s-theme"
+          data-key="theme" value={settings.theme} onchange={(e) => void update({ theme: textFrom(e) }, e.currentTarget)}>
           <option value="auto">Auto (Omarchy, else system)</option>
           <option value="light">Light</option>
           <option value="dark">Dark</option>
@@ -103,36 +147,40 @@
         <label for="s-font">Font</label>
         <input
           id="s-font"
+          data-key="font_family"
           value={settings.font_family}
           placeholder="auto"
-          onchange={(e) => void update({ font_family: textFrom(e).trim() || "auto" })}
+          onchange={(e) => void update({ font_family: textFrom(e).trim() || "auto" }, e.currentTarget)}
         />
 
         <label for="s-size">Font size</label>
         <input
           id="s-size"
+          data-key="font_size"
           type="number"
           min="8"
           max="40"
           value={settings.font_size}
-          onchange={(e) => void update({ font_size: numberFrom(e) })}
+          onchange={(e) => void update({ font_size: numberFrom(e) }, e.currentTarget)}
         />
 
         <label for="s-precision">Decimal places</label>
         <input
           id="s-precision"
+          data-key="precision"
           type="number"
           min="0"
           max="20"
           value={settings.precision}
-          onchange={(e) => void update({ precision: numberFrom(e) })}
+          onchange={(e) => void update({ precision: numberFrom(e) }, e.currentTarget)}
         />
 
         <label for="s-locale">Number format</label>
         <select
           id="s-locale"
+          data-key="locale"
           value={settings.locale}
-          onchange={(e) => void update({ locale: textFrom(e) as AppSettings["locale"] })}
+          onchange={(e) => void update({ locale: textFrom(e) as AppSettings["locale"] }, e.currentTarget)}
         >
           <option value="en">1,234.5 (en)</option>
           <option value="id">1.234,5 (id)</option>
@@ -141,42 +189,48 @@
         <label for="s-notes">Notes folder</label>
         <input
           id="s-notes"
+          data-key="notes_dir"
           value={settings.notes_dir}
           placeholder="Default (~/.local/share/notecal/notes)"
-          onchange={(e) => void update({ notes_dir: textFrom(e).trim() })}
+          onchange={(e) => void update({ notes_dir: textFrom(e).trim() }, e.currentTarget)}
         />
 
         <label for="s-shortcut">Shortcut</label>
         <div>
           <input
             id="s-shortcut"
+          data-key="shortcut"
+            aria-describedby="s-shortcut-status"
             value={settings.shortcut}
-            onchange={(e) => void update({ shortcut: textFrom(e).trim() || "Alt+Space" })}
+            onchange={(e) => void update({ shortcut: textFrom(e).trim() || "Alt+Space" }, e.currentTarget)}
           />
-          <p class="hint">{shortcutStatus}</p>
+          <p class="hint" id="s-shortcut-status">{shortcutStatus}</p>
         </div>
 
-        <span></span>
+        <span aria-hidden="true"></span>
         <div class="checks">
           <label
             ><input
               type="checkbox"
+              data-key="always_on_top"
               checked={settings.always_on_top}
-              onchange={(e) => void update({ always_on_top: e.currentTarget.checked })}
+              onchange={(e) => void update({ always_on_top: e.currentTarget.checked }, e.currentTarget)}
             /> Always on top (Ctrl+Shift+T; X11/macOS)</label
           >
           <label
             ><input
               type="checkbox"
+              data-key="background"
               checked={settings.background}
-              onchange={(e) => void update({ background: e.currentTarget.checked })}
+              onchange={(e) => void update({ background: e.currentTarget.checked }, e.currentTarget)}
             /> Keep running in the background when closed</label
           >
           <label
             ><input
               type="checkbox"
+              data-key="currency_refresh"
               checked={settings.currency_refresh}
-              onchange={(e) => void update({ currency_refresh: e.currentTarget.checked })}
+              onchange={(e) => void update({ currency_refresh: e.currentTarget.checked }, e.currentTarget)}
             /> Update exchange rates daily</label
           >
         </div>

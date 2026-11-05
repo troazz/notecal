@@ -58,7 +58,14 @@
   }
 
   /** Reopens the last note at its cursor (N4), or the most recent note. */
-  async function start() {
+  /** One start at a time (a folder change can arrive while one runs). */
+  let starting: Promise<void> | null = null;
+  function start(): Promise<void> {
+    starting ??= startOnce().finally(() => (starting = null));
+    return starting;
+  }
+
+  async function startOnce() {
     try {
       const [state, notes] = await Promise.all([notesApi.loadState(), notesApi.list()]);
       const last = notes.find((n) => n.name === state.lastNote)?.name;
@@ -74,6 +81,7 @@
     try {
       await saveState();
       await session.open(name);
+      editor.setReadOnly(false);
       editor.setCursor(cursor);
       noteName = name;
       showSwitcher = false;
@@ -109,6 +117,7 @@
     if (session?.name !== name) return;
     session.closed();
     noteName = null;
+    editor?.setReadOnly(true);
     try {
       const next = (await notesApi.list())[0]?.name ?? (await createScratch());
       await openNote(next);
@@ -143,9 +152,17 @@
   }
 
   /** The notes folder changed: reopen from the new folder. */
+  /**
+   * The notes folder changed. Pending edits are saved first: the open note's
+   * name does not exist in the new folder, so the save creates it there
+   * rather than losing the text.
+   */
   async function onNotesDirChanged() {
+    await session?.flush();
     session?.closed();
     noteName = null;
+    // Until a note opens, typing would go nowhere.
+    editor?.setReadOnly(true);
     await start();
   }
 
@@ -174,22 +191,39 @@
       }),
       appWindow.onCloseRequested(async (event) => {
         await persist();
+        if (session?.hasUnsavedEdits) {
+          // The save failed (the notice says why); closing would lose the edits.
+          event.preventDefault();
+          return;
+        }
         // A3: with "background" on, closing hides; Quit is in the tray.
-        const background = await settingsApi
-          .get()
-          .then((view) => view.settings.background)
-          .catch(() => false);
-        if (background) {
+        // Hiding needs a way back: the tray icon (or a compositor binding).
+        const [background, tray] = await Promise.all([
+          settingsApi
+            .get()
+            .then((view) => view.settings.background)
+            .catch(() => false),
+          invoke<boolean>("tray_available").catch(() => false),
+        ]);
+        if (background && tray) {
           event.preventDefault();
           await appWindow.hide();
         }
       }),
       listen("quit-requested", async () => {
         await persist();
-        await invoke("quit");
+        if (session?.hasUnsavedEdits) {
+          // Stay open so the edits are not lost; the notice says why.
+          await invoke("cancel_quit").catch(() => {});
+          return;
+        }
+        await invoke("quit").catch((error: unknown) => report(String(error)));
       }),
     ];
-    return () => stops.forEach((stop) => void stop.then((unlisten) => unlisten()));
+    return () =>
+      stops.forEach((stop) =>
+        stop.then((unlisten) => unlisten()).catch((error: unknown) => console.error(error)),
+      );
   });
 
   function onKeydown(event: KeyboardEvent) {
@@ -205,6 +239,7 @@
       void toggleAlwaysOnTop();
     } else if (mod && event.key === ",") {
       event.preventDefault();
+      showSwitcher = false;
       showSettings = !showSettings;
       if (!showSettings) editor?.focus();
     } else if (event.key === "Escape" && !showSwitcher && !showSettings && !event.defaultPrevented && !inEditorPanel(event)) {
