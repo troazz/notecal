@@ -160,3 +160,29 @@ cargo bench -p notecal-core                               # manual budget check
 - [ ] Property test: no panic, no line over 100 ms
 - [ ] Benches meet ≤ 40 µs per line and ≤ 8 ms per 200-line note
 - [ ] Patterns mirrored, not reinvented (greenfield: conventions above become the patterns for M2+)
+
+## Task 2 findings (fend-core 1.5.9, release build, Arch machine, 2026-11-05)
+
+| Area | fend native behaviour | Preprocessor needed? |
+|---|---|---|
+| C1, C2, C10 | All correct (`0.1 + 0.2` → `0.3`, `2(3+4)` → `14`, `7 mod 3`, trig, `sqrt`, `round`…) | No |
+| C3 units | All families correct; `in` and `to` both work; `20 C in F` → `68 °F` | No |
+| C8 formats | `0xff in binary` → `11111111`, `255 in hex` → `ff`, `0b101`, `0o17`, `1e3` | No |
+| `20% of 50`, `10%`, `10% * 3` | `10`, `10%`, `30%` | No |
+| `50 + 10%` / `50 - 10%` | `50.1` / `49.9` (percent read as /100) | **Yes** |
+| `5 as % of 20` | Parse error | **Yes** (`(5/20) to %` works natively) |
+| Variables | `a = 5` then `a * 2` works | No |
+| Reserved names | fend allows `m = 5` and `e = 2` (shadows unit/constant) | **Yes**, reject |
+| `prev`, `sum`, `total`, `avg` | Unknown identifier | **Yes** |
+| `#` lines | Empty result | No (classify anyway for blocks) |
+| `//` lines | Error | **Yes** |
+| C12 input, `en` | `4,500,000` → `4500000` natively | No |
+| C12 input, `en`, bad group | `1,5` → `15` (silently wrong) | **Yes**, reject |
+| C12 input, `id` (Comma style) | `4.500.000` and `1,5 + 1` → `2,5` natively | No |
+| Output | No group separators; `approx. ` prefix; full precision (`3.1068559612`) | **Yes** (format.rs) |
+| Huge output | `2^2^2^2^2` prints ~20k digits, 10 ms | **Yes**, cap length → scientific/no result |
+| Currency | Handler returning units-per-USD gives correct direction (`100 USD in IDR` → `1600000 IDR`); `1 km + 1 IDR` errors | No |
+| C13 interrupt | `10^10^10` and `1000000!` stop at 50.1 ms | No |
+| Context clone | Clone per line adds ~5% (11.9 vs 11.3 ms per 200 lines) | Snapshot per line is fine |
+
+**Speed (budget miss).** Single line: 8–60 µs for arithmetic, 85–200 µs for unit conversions; mean ~120 µs. A 200-line mixed note: ~11.3 ms. Both miss the PRD engine budgets (40 µs, 8 ms). The cost is inside fend's evaluation, not context setup.

@@ -1,0 +1,22 @@
+[package]
+name = "notecal-core"
+version = "0.1.0"
+description = "Calculation engine for notecal: evaluates a note line by line"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+fend-core = "1.5.9"
+
+[dev-dependencies]
+criterion = "0.8"
+proptest = "1.12"
+
+[[bench]]
+name = "eval"
+harness = false
+
+[lints]
+workspace = true
