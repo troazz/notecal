@@ -80,7 +80,7 @@ Ship notecal v1.0: CI builds the macOS `.dmg` and the Linux AppImage on every `v
 ### Task 2: Golden suite to ≥ 300 ✅
 - **Action**: Write cases per language rule and locale, plus currency (fixed rates), division, errors and edge cases. Fix any engine bug the cases expose. Raise the harness minimum to 300.
 - **Validate**: `cargo test -p notecal-core` reports ≥ 300 cases, all passing.
-- **Done**: 335 cases (5 new files: currency, locale_id, division, blocks, edge). No engine bugs found; the 18 first-run mismatches were test mistakes (unannotated block lines, a total converting to the first line's currency as the PRD says, sub-cent amounts rounding to 0). Harness minimum raised to 300.
+- **Done**: 334 cases (5 new files: currency, locale_id, division, blocks, edge). No engine bugs found; the 18 first-run mismatches were test mistakes (unannotated block lines, a total converting to the first line's currency as the PRD says, sub-cent amounts rounding to 0). Harness minimum raised to 300.
 
 ### Task 3: App icon
 - **Action**: Draw an original SVG icon, render `source.png`, regenerate the icon set, and check it in the tray, window and `.desktop`.
