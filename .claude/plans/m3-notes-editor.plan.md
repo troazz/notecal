@@ -185,9 +185,9 @@ cd ui && bun run tauri build --no-bundle   # manual checks on target/release/not
 ## Acceptance
 
 - [x] All tasks complete
-- [ ] Validation passes locally and in CI
+- [x] Validation passes locally and in CI
 - [x] Every storage rule has a passing test
-- [ ] Editing a note while Syncthing (or `echo >>`) changes it never loses text
+- [x] Editing a note while Syncthing (or `echo >>`) changes it never loses text (manual `echo >>` and conflict checks, plus storage and session tests)
 - [x] Contrast ratios recorded and passing (built-in palettes)
 - [x] notecal follows `omarchy theme set` live
 - [x] Patterns mirrored, not reinvented
