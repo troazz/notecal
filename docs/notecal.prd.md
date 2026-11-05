@@ -300,7 +300,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 | 1 | Engine core (~2.5 w) | `notecal-core` evaluates C1–C8, C10, C12, C13 with the language rules; ≥ 150 golden cases, fuzz test, per-line cache, and benches meeting the engine budgets | complete | `.claude/plans/m1-engine-core.plan.md` |
 | 2 | Shell spike + Gate 1 (~1.5 w) | Tauri + Svelte + CodeMirror window with live right-aligned results for one note; Gate 1 measured on Arch (macOS deferred to M5) | complete | `.claude/plans/m2-shell-spike.plan.md` |
 | 3 | Notes and editor (~2 w) | N1–N5, E1–E6 (E5, E7–E9 if time allows); notes are safe under Syncthing | complete | `.claude/plans/m3-notes-editor.plan.md` |
-| 4 | App shell and currency (~1.5 w) | A1, A2, A3–A6, C9 with cached offline rates | pending | — |
+| 4 | App shell and currency (~1.5 w) | A1, A2, A3–A6, C9 with cached offline rates | in-progress | `.claude/plans/m4-app-shell-currency.plan.md` |
 | 5 | Release + Gate 2 (~1.5 w) | CI builds `.dmg`, AppImage and AUR inputs with size checks; ≥ 300 golden cases; v1.0 tagged | pending | — |
 
 **Gate 1 (end of M2): WebKitGTK on Arch.** This is the biggest risk, so it is checked before investing in features. Measure on the author's Arch/Hyprland machine: keystroke-to-results p95 on a 200-line note, cold start, and idle RAM. Result: **passed on Arch** (`docs/gate1.md`). The macOS measurement was deferred by the author to focus on Linux; WKWebView is the lower-risk platform and is measured at Gate 2.
