@@ -1,0 +1,35 @@
+;; C9 currency with the fixed test rates: USD 1, IDR 16000, EUR 0.9
+100 USD in IDR => 1,600,000 IDR
+1,600,000 IDR in USD => 100 USD
+90 EUR in USD => 100 USD
+100 USD to EUR => 90 EUR
+50 USD + 45 EUR => 100 USD
+2 * 25 USD => 50 USD
+100 USD / 4 => 25 USD
+0.5 USD => 0.50 USD || 0.50
+10,000 IDR in USD => 0.63 USD
+;; Amounts below a cent round to zero
+1 IDR in USD => 0 USD
+1234.567 USD => 1,234.57 USD || 1234.57
+-20 USD => -20 USD
+100 USD - 10% => 90 USD
+25% of 80 EUR => 20 EUR
+---
+lunch = 85,000 IDR => 85,000 IDR
+coffee = 35,000 IDR => 35,000 IDR
+taxi = 120,000 IDR => 120,000 IDR
+total => 240,000 IDR
+total in USD => 15 USD
+---
+hotel = 120 EUR => 120 EUR
+flight = 300 USD => 300 USD
+;; A total converts to the first line's currency (PRD C6)
+sum => 390 EUR
+---
+;; Currency and length cannot be added
+5 USD + 3 km
+---
+;; Prices per unit
+price = 15,000 IDR => 15,000 IDR
+price * 12 => 180,000 IDR
+price * 12 in USD => 11.25 USD

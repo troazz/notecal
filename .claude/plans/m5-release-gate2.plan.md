@@ -77,9 +77,10 @@ Ship notecal v1.0: CI builds the macOS `.dmg` and the Linux AppImage on every `v
 - **Validate**: Stripped binary well under 15 MB. `cargo bench -p notecal-core -- --quick` stays within the engine budgets. The app still starts.
 - **Done**: binary 21.1 MB → 11.2 MB (strip + fat LTO + one codegen unit). Engine got faster too: `note_200_uncached` 12.9 ms (was ~14.7), `single_line` 135 µs, last-line edit 130 µs. Local release build now takes ~3.5 min. App starts normally.
 
-### Task 2: Golden suite to ≥ 300
+### Task 2: Golden suite to ≥ 300 ✅
 - **Action**: Write cases per language rule and locale, plus currency (fixed rates), division, errors and edge cases. Fix any engine bug the cases expose. Raise the harness minimum to 300.
 - **Validate**: `cargo test -p notecal-core` reports ≥ 300 cases, all passing.
+- **Done**: 335 cases (5 new files: currency, locale_id, division, blocks, edge). No engine bugs found; the 18 first-run mismatches were test mistakes (unannotated block lines, a total converting to the first line's currency as the PRD says, sub-cent amounts rounding to 0). Harness minimum raised to 300.
 
 ### Task 3: App icon
 - **Action**: Draw an original SVG icon, render `source.png`, regenerate the icon set, and check it in the tray, window and `.desktop`.

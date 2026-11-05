@@ -1,0 +1,22 @@
+;; Division by a quantity with a unit keeps the divisor's number and unit together
+8 km / 2 km => 4
+1 GiB / 4 KiB => 262,144
+100 km / 2 h => 50 km / h
+1,000 m / 250 m => 4
+3 hours / 30 minutes => 6
+10 kg / 2 kg => 5
+1 TB / 500 GB => 2
+;; A bare-number divisor keeps the unit
+10 km / 2 => 5 km
+90 minutes / 3 => 30 minutes
+;; A bare-number dividend keeps fend's reading
+10 / 2 m => 5 m
+;; Explicit parentheses always win
+(8 km) / (2 km) => 4
+8 km / (2 km) => 4
+---
+distance = 420 km => 420 km
+time = 6 hours => 6 hours
+distance / time => 70 km / hour
+distance / 2 km => 210
+distance / 2 => 210 km
