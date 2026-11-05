@@ -8,6 +8,9 @@ repository.workspace = true
 license.workspace = true
 publish = false
 
+[dev-dependencies]
+tempfile = "3.27.0"
+
 [build-dependencies]
 tauri-build = { version = "2.7.4", features = [] }
 
@@ -16,6 +19,7 @@ notecal-core = { path = "../crates/notecal-core" }
 tauri = { version = "2.12.5", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+notify-debouncer-full = "0.7.0"
 
 [lints]
 workspace = true

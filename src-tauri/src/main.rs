@@ -1,11 +1,20 @@
+mod commands;
 mod evaluator;
+mod notes;
+mod state;
+mod watch;
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+use commands::Notes;
 use evaluator::{EvalRequest, EvalResponse, Evaluator};
-use tauri::State;
+use tauri::{Manager, State};
+use watch::Watch;
+
+/// File watches that must live as long as the app.
+struct Watches(#[allow(dead_code)] Mutex<Vec<Watch>>);
 
 /// When `main` started, for the cold-start measurement (`mark_ready`).
 struct Startup {
@@ -68,7 +77,33 @@ fn main() {
     tauri::Builder::default()
         .manage(startup)
         .manage(Arc::new(Evaluator::default()))
-        .invoke_handler(tauri::generate_handler![evaluate, mark_ready])
+        .setup(|app| {
+            let paths = app.path();
+            let notes = Notes::new(
+                commands::notes_dir(&paths.data_dir()?),
+                commands::state_path(&paths.config_dir()?),
+            )?;
+            let dir = notes.dir();
+            app.manage(notes);
+            let handle = app.handle().clone();
+            let watch = watch::watch_dir(&dir, move |changed| {
+                handle.state::<Notes>().on_paths_changed(&handle, &changed);
+            })?;
+            app.manage(Watches(Mutex::new(vec![watch])));
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            evaluate,
+            mark_ready,
+            commands::list_notes,
+            commands::open_note,
+            commands::save_note,
+            commands::create_note,
+            commands::rename_note,
+            commands::delete_note,
+            commands::load_state,
+            commands::save_state,
+        ])
         .run(tauri::generate_context!())
         .expect("failed to start the notecal window");
 }

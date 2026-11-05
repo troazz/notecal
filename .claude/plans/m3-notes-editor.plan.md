@@ -119,13 +119,14 @@ enum DiskChange  { Unchanged, Changed(String), Deleted }
 - **Validate**: `cargo test -p notecal-core`; benches still within budget (`cargo bench -p notecal-core -- --quick`).
 - **Done**: grouping applies only when the dividend ends in a word (unit or variable), so `10 / 2 m` stays `5 m`; chains like `a / 2 b / 3 c` group each divisor. 218 golden cases pass. `note_200_uncached` unchanged (alternating runs: 14.6–14.8 ms before and after).
 
-### Task 2: Note storage
+### Task 2: Note storage ✅
 - **Action**: `notes.rs` with `NoteStore`, name validation, atomic write, `list/open/save/create/rename/delete/disk_changed`.
 - **Mirror**: `evaluator.rs` structure and tests.
 - **Validate**: Tests for every storage rule: plain save; external change + no local edit → `Changed`; external change + local edit → conflict file with the local text and disk text kept; deleted file → buffer saved again on next save; temp files never listed; rename to existing name refused; invalid names refused.
 
-### Task 3: Commands, state file, watcher
+### Task 3: Commands, state file, watcher ✅
 - **Action**: `commands.rs`, `state.rs`, `watch.rs`; notes dir `data_dir()/notecal/notes`, created on start; `Scratch.txt` seeded when empty.
+- **Note**: the conflict-file timestamp (`YYYY-MM-DD HHMM`, local time) is passed in by the UI with each save, so Rust needs no date/time-zone dependency.
 - **Validate**: Unit tests for `state.rs`. Manual: `echo 1+1 >> ~/.local/share/notecal/notes/Scratch.txt` while the app is open reloads the buffer; idle CPU still ~1% (`top`).
 
 ### Task 4: Autosave session in the UI
