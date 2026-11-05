@@ -2,13 +2,14 @@ mod commands;
 mod evaluator;
 mod notes;
 mod state;
+mod theme;
 mod watch;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use commands::Notes;
+use commands::{Notes, ThemeSource};
 use evaluator::{EvalRequest, EvalResponse, Evaluator};
 use tauri::{Manager, State};
 use watch::Watch;
@@ -89,7 +90,23 @@ fn main() {
             let watch = watch::watch_dir(&dir, move |changed| {
                 handle.state::<Notes>().on_paths_changed(&handle, &changed);
             })?;
-            app.manage(Watches(Mutex::new(vec![watch])));
+            let mut watches = vec![watch];
+
+            let omarchy_current = theme::omarchy_current_dir(&paths.home_dir()?);
+            if omarchy_current.is_dir() {
+                let handle = app.handle().clone();
+                match watch::watch_dir(&omarchy_current, move |changed| {
+                    handle
+                        .state::<ThemeSource>()
+                        .on_paths_changed(&handle, &changed);
+                }) {
+                    Ok(watch) => watches.push(watch),
+                    // Theme following is a nicety; the app works without it.
+                    Err(e) => eprintln!("notecal: {e}"),
+                }
+            }
+            app.manage(ThemeSource { omarchy_current });
+            app.manage(Watches(Mutex::new(watches)));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -103,6 +120,7 @@ fn main() {
             commands::delete_note,
             commands::load_state,
             commands::save_state,
+            commands::get_theme,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start the notecal window");

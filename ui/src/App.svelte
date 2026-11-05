@@ -171,47 +171,6 @@
 </main>
 
 <style>
-  :global(:root) {
-    color-scheme: light dark;
-    --bg-color: #fbfbfa;
-    --text-color: #1d1f23;
-    --result-color: #5b6270;
-    --panel-color: #ecedef;
-    --border-color: #d3d5da;
-    --selection-color: #d7e3fb;
-    --muted-color: #5b6270;
-    --accent-color: #2457c5;
-    --error-color: #b42318;
-    --hl-heading: #1d1f23;
-    --hl-comment: #5b6270;
-    --hl-number: #8a4b00;
-    --hl-unit: #0b6b6b;
-    --hl-variable: #1d1f23;
-    --hl-keyword: #8a2f8f;
-    --hl-function: #2457c5;
-    --hl-operator: #2457c5;
-  }
-  @media (prefers-color-scheme: dark) {
-    :global(:root) {
-      --bg-color: #1b1d22;
-      --text-color: #e6e7ea;
-      --result-color: #a0a7b4;
-      --panel-color: #2a2d34;
-      --border-color: #3b3f48;
-      --selection-color: #2f3b55;
-      --muted-color: #a0a7b4;
-      --accent-color: #8fb3ff;
-      --error-color: #ff8a80;
-      --hl-heading: #e6e7ea;
-      --hl-comment: #a0a7b4;
-      --hl-number: #f0c674;
-      --hl-unit: #7fd4d4;
-      --hl-variable: #e6e7ea;
-      --hl-keyword: #d7a4e8;
-      --hl-function: #8fb3ff;
-      --hl-operator: #8fb3ff;
-    }
-  }
   :global(html, body) {
     margin: 0;
     height: 100%;
