@@ -61,6 +61,13 @@ pub struct Notes {
     watch: Mutex<Option<Watch>>,
 }
 
+fn notes_watch(app: &AppHandle, dir: &Path) -> Result<Watch, String> {
+    let handle = app.clone();
+    watch::watch_dir(dir, move |changed| {
+        handle.state::<Notes>().on_paths_changed(&handle, &changed);
+    })
+}
+
 /// Opens a notes folder, seeding `Scratch` when it holds no notes.
 fn open_store(dir: PathBuf) -> Result<NoteStore, String> {
     let mut store = NoteStore::new(dir)?;
@@ -85,15 +92,16 @@ impl Notes {
 
     /// Starts (or restarts) watching the current notes folder.
     pub fn start_watch(&self, app: &AppHandle) -> Result<(), String> {
-        let handle = app.clone();
-        let watch = watch::watch_dir(&self.dir(), move |changed| {
-            handle.state::<Notes>().on_paths_changed(&handle, &changed);
-        })?;
+        let watch = notes_watch(app, &self.dir())?;
+        self.set_watch(watch);
+        Ok(())
+    }
+
+    fn set_watch(&self, watch: Watch) {
         *self
             .watch
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(watch);
-        Ok(())
     }
 
     /// Switches to another notes folder (the `notes_dir` setting). Notes are
@@ -102,9 +110,12 @@ impl Notes {
         if dir == self.dir() {
             return Ok(());
         }
-        let store = open_store(dir)?;
+        // Everything that can fail happens before the switch.
+        let store = open_store(dir.clone())?;
+        let watch = notes_watch(app, &dir)?;
         *self.lock() = Inner { store, open: None };
-        self.start_watch(app)
+        self.set_watch(watch);
+        Ok(())
     }
 
     pub fn dir(&self) -> PathBuf {
@@ -214,27 +225,40 @@ impl SettingsState {
 
     /// Stores `view` and applies it; emits `settings-changed` if it differs.
     fn apply(&self, app: &AppHandle, mut view: SettingsView) {
-        let mut current = self
-            .current
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if *current == view {
+        let old = self.view();
+        if old == view {
             return;
         }
-        let old = std::mem::replace(&mut *current, view.clone()).settings;
-        drop(current);
+        // A folder that cannot be used keeps the old one, so the app state
+        // never disagrees with the folder actually in use.
+        if old.settings.notes_dir != view.settings.notes_dir
+            && let Err(e) = relocate_notes(app, &view.settings)
+        {
+            view.problems
+                .push(format!("{e} The notes folder was not changed."));
+            view.settings.notes_dir = old.settings.notes_dir.clone();
+        }
+        *self
+            .current
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = view.clone();
         app.state::<Arc<Evaluator>>()
             .set_settings(view.settings.engine());
         crate::shell::apply_window_settings(app, &view.settings);
-        if old.theme != view.settings.theme {
+        if old.settings.theme != view.settings.theme {
             app.state::<ThemeSource>().emit_current(app);
         }
-        if old.notes_dir != view.settings.notes_dir
-            && let Err(e) = relocate_notes(app, &view.settings)
-        {
-            view.problems.push(e);
-        }
         emit(app, settings::SETTINGS_CHANGED, view);
+    }
+
+    /// Records a problem found outside the file (e.g. an unusable notes folder at startup).
+    pub fn add_problem(&self, problem: String) {
+        eprintln!("notecal: {problem}");
+        self.current
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .problems
+            .push(problem);
     }
 
     /// Handles watch events in the config folder (hand edits of settings.toml).
@@ -282,18 +306,29 @@ impl RatesState {
         }
         let fetcher = Arc::clone(&self.fetcher);
         let app = app.clone();
-        std::thread::spawn(move || {
-            let result = fetcher.fetch();
-            let state = app.state::<RatesState>();
-            let finished = state.lock().finish(result, now_secs());
-            match finished {
-                Ok(new_rates) => {
-                    app.state::<Arc<Evaluator>>().set_rates(Some(new_rates));
-                    emit(&app, rates::RATES_UPDATED, state.lock().status());
+        let spawned = std::thread::Builder::new()
+            .name("notecal-rates".into())
+            .spawn(move || {
+                // A panic must still end the attempt, or refreshes stop for good.
+                let result =
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| fetcher.fetch()))
+                        .unwrap_or_else(|_| Err("The exchange-rate fetch crashed.".into()));
+                let state = app.state::<RatesState>();
+                let finished = state.lock().finish(result, now_secs());
+                match finished {
+                    Ok(new_rates) => {
+                        app.state::<Arc<Evaluator>>().set_rates(Some(new_rates));
+                        emit(&app, rates::RATES_UPDATED, state.lock().status());
+                    }
+                    Err(e) => eprintln!("notecal: {e}"),
                 }
-                Err(e) => eprintln!("notecal: {e}"),
-            }
-        });
+            });
+        if let Err(e) = spawned {
+            let _ = self.lock().finish(
+                Err(format!("Could not start the rates fetch: {e}")),
+                now_secs(),
+            );
+        }
     }
 }
 
@@ -338,6 +373,12 @@ pub async fn save_settings(
     app: AppHandle,
     state: State<'_, SettingsState>,
 ) -> Result<(), String> {
+    settings::validate(&settings)?;
+    // Switch folders before saving, so an unusable folder is never written
+    // to settings.toml (where it would break the next launch).
+    if state.view().settings.notes_dir != settings.notes_dir {
+        relocate_notes(&app, &settings)?;
+    }
     settings::save(&state.path, &settings)?;
     state.apply(
         &app,

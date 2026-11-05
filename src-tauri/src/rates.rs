@@ -127,10 +127,11 @@ impl RatesStore {
         let stale = self
             .cache
             .as_ref()
-            .is_none_or(|c| now.saturating_sub(c.fetched_at) >= MAX_AGE_SECS);
+            // A timestamp from the future (clock changed) counts as stale.
+            .is_none_or(|c| c.fetched_at > now || now - c.fetched_at >= MAX_AGE_SECS);
         let may_retry = self
             .last_attempt
-            .is_none_or(|t| now.saturating_sub(t) >= RETRY_AFTER_SECS);
+            .is_none_or(|t| t > now || now - t >= RETRY_AFTER_SECS);
         let go = enabled && !self.in_flight && stale && may_retry && mentions_currency(text);
         if go {
             self.in_flight = true;
@@ -215,6 +216,14 @@ mod tests {
         assert!(store.start_refresh("1 EUR", true, 0));
         store.finish(Ok(fetched()), 0).unwrap();
         assert!(!store.start_refresh("1 EUR", true, DAY - 1));
+        assert!(store.start_refresh("1 EUR", true, DAY));
+    }
+
+    #[test]
+    fn cache_from_the_future_is_stale() {
+        let (_dir, mut store) = store();
+        assert!(store.start_refresh("1 EUR", true, 10 * DAY));
+        store.finish(Ok(fetched()), 10 * DAY).unwrap();
         assert!(store.start_refresh("1 EUR", true, DAY));
     }
 

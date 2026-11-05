@@ -115,8 +115,13 @@ pub fn parse(text: &str) -> SettingsView {
                 Some(s) => settings.shortcut = s.trim().to_string(),
                 None => bad(&mut problems, "a shortcut such as \"Alt+Space\""),
             },
-            "theme" => match value.as_str().filter(|s| !s.trim().is_empty()) {
-                Some(s) => settings.theme = s.trim().to_string(),
+            // A theme name becomes a file name in the themes folder.
+            "theme" => match value
+                .as_str()
+                .map(str::trim)
+                .filter(|s| !s.is_empty() && !s.starts_with('.') && !s.contains(['/', '\\']))
+            {
+                Some(s) => settings.theme = s.to_string(),
                 None => bad(&mut problems, "auto, light, dark or a theme file name"),
             },
             "font_family" => match value.as_str().filter(|s| !s.trim().is_empty()) {
@@ -136,9 +141,17 @@ pub fn parse(text: &str) -> SettingsView {
                 Some("id") => settings.locale = Locale::Id,
                 _ => bad(&mut problems, "\"en\" or \"id\""),
             },
-            "notes_dir" => match value.as_str() {
-                Some(s) => settings.notes_dir = s.trim().to_string(),
-                None => bad(&mut problems, "a folder path, or \"\" for the default"),
+            // Absolute only: a relative path would depend on where notecal was started.
+            "notes_dir" => match value
+                .as_str()
+                .map(str::trim)
+                .filter(|s| s.is_empty() || Path::new(s).is_absolute())
+            {
+                Some(s) => settings.notes_dir = s.to_string(),
+                None => bad(
+                    &mut problems,
+                    "an absolute folder path such as \"/home/you/Notes\", or \"\" for the default",
+                ),
             },
             "currency_refresh" | "always_on_top" | "background" => match value.as_bool() {
                 Some(b) => match key.as_str() {
@@ -229,6 +242,23 @@ mod tests {
         assert_eq!(view.settings, AppSettings::default());
         assert_eq!(view.problems.len(), 6, "{:?}", view.problems);
         assert!(view.problems.iter().any(|p| p.contains("'colour'")));
+    }
+
+    #[test]
+    fn notes_dir_must_be_absolute_and_theme_a_plain_name() {
+        for bad in [
+            "notes_dir = \"notes\"",
+            "notes_dir = \"~/notes\"",
+            "theme = \"../../etc/x\"",
+            "theme = \"/etc/x\"",
+            "theme = \".hidden\"",
+        ] {
+            let view = parse(bad);
+            assert_eq!(view.settings, AppSettings::default(), "{bad}");
+            assert_eq!(view.problems.len(), 1, "{bad}");
+        }
+        let ok = parse("notes_dir = \"/home/me/Notes\"\ntheme = \"my theme\"");
+        assert!(ok.problems.is_empty());
     }
 
     #[test]
