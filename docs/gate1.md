@@ -35,7 +35,7 @@ WebKitGTK 2.54.1.
 
 ## macOS
 
-_Pending: run on the Mac (prerequisites in the M2 plan, Task 6)._
+_Deferred to Gate 2 (M5): the author chose to focus on Linux. Prerequisites are in the M2 plan, Task 6._
 
 | Metric | Result | PRD |
 |---|---|---|
@@ -46,4 +46,6 @@ _Pending: run on the Mac (prerequisites in the M2 plan, Task 6)._
 
 ## Decision
 
-_Arch passes. Pending the macOS numbers._
+**Pass.** WebKitGTK on Arch/Hyprland meets the typing budget (p95 45 ms) with the DMABUF renderer off, so M3 continues on Tauri; no iced fallback.
+
+Linux targets written into the PRD from these numbers: cold start ≤ 400 ms (measured 321 ms), idle RAM ≤ 200 MiB PSS (measured 163 MiB).
