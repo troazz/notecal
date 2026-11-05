@@ -337,7 +337,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 
 ### Open questions
 
-- [ ] License: MIT or GPL-3.0?
+- [x] License: MIT (2026-11-05).
 - [x] Linux cold-start and idle-RAM targets: ≤ 400 ms and ≤ 200 MiB (set at Gate 1).
 
 ### Success metrics
