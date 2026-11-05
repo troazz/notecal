@@ -9,13 +9,19 @@ function build(doc: Text, lines: readonly LineResult[]): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const count = Math.min(doc.lines, lines.length);
   for (let i = 0; i < count; i++) {
-    const display = lines[i]?.display;
-    if (!display) continue;
+    const result = lines[i];
+    if (!result?.display) continue;
     // A line attribute drawn by CSS, not a widget: an inline widget at the
     // line end is what the editor measures the end-of-line cursor against,
     // which put the cursor next to the result instead of after the text.
     const line = doc.line(i + 1);
-    builder.add(line.from, line.from, Decoration.line({ attributes: { "data-result": display } }));
+    builder.add(
+      line.from,
+      line.from,
+      Decoration.line({
+        attributes: { "data-result": result.display, "data-copy": result.copy ?? result.display },
+      }),
+    );
   }
   return builder.finish();
 }
@@ -74,6 +80,71 @@ const pinToViewport = ViewPlugin.fromClass(
   },
 );
 
+/** Marks the line whose result was just copied (PRD E1: click to copy). */
+const flashCopied = StateEffect.define<number | null>();
+
+const copiedField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(decorations, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(flashCopied)) {
+        return effect.value === null
+          ? Decoration.none
+          : Decoration.set(Decoration.line({ class: "cm-result-copied" }).range(effect.value));
+      }
+    }
+    return tr.docChanged ? decorations.map(tr.changes) : decorations;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+
+const COPIED_FLASH_MS = 900;
+let measureCanvas: HTMLCanvasElement | undefined;
+
+function textWidth(text: string, font: string): number {
+  measureCanvas ??= document.createElement("canvas");
+  const context = measureCanvas.getContext("2d");
+  if (!context) return 0;
+  context.font = font;
+  return context.measureText(text).width;
+}
+
+/**
+ * The result is a CSS pseudo-element, which has no DOM node to receive
+ * events, so a click is matched against where the result is drawn: right
+ * edge of the visible area minus the inset, back by the text's width.
+ */
+function resultUnderPointer(event: MouseEvent, view: EditorView): { line: HTMLElement; copy: string } | null {
+  const line = (event.target as Element | null)?.closest<HTMLElement>(".cm-line[data-result]");
+  const text = line?.dataset["result"];
+  const copy = line?.dataset["copy"];
+  if (!line || !text || copy === undefined) return null;
+  const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  const scroller = view.scrollDOM;
+  const right = scroller.getBoundingClientRect().left + scroller.clientWidth - 0.75 * rootFontSize;
+  const left = right - textWidth(text, getComputedStyle(line).font);
+  return event.clientX >= left && event.clientX <= right ? { line, copy } : null;
+}
+
+const copyOnClick = EditorView.domEventHandlers({
+  mousedown(event, view) {
+    if (event.button !== 0) return false;
+    const hit = resultUnderPointer(event, view);
+    if (!hit) return false;
+    event.preventDefault();
+    const from = view.posAtDOM(hit.line);
+    void navigator.clipboard.writeText(hit.copy).then(() => {
+      view.dispatch({ effects: flashCopied.of(from) });
+      setTimeout(() => view.dispatch({ effects: flashCopied.of(null) }), COPIED_FLASH_MS);
+    });
+    return true;
+  },
+  mousemove(event, view) {
+    view.contentDOM.classList.toggle("cm-over-result", resultUnderPointer(event, view) !== null);
+    return false;
+  },
+});
+
 const resultsTheme = EditorView.baseTheme({
   ".cm-line": { position: "relative" },
   // Absolutely positioned so a result never shifts the text it follows. The
@@ -88,7 +159,9 @@ const resultsTheme = EditorView.baseTheme({
     whiteSpace: "pre",
     pointerEvents: "none",
   },
+  ".cm-line.cm-result-copied::after": { content: '"Copied"' },
+  ".cm-content.cm-over-result": { cursor: "pointer" },
 });
 
-/** Draws each line's result right-aligned on that line (PRD E1). */
-export const results: Extension = [resultsField, pinToViewport, resultsTheme];
+/** Draws each line's result right-aligned on that line; a click copies it (PRD E1). */
+export const results: Extension = [resultsField, copiedField, pinToViewport, copyOnClick, resultsTheme];
