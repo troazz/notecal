@@ -5,8 +5,9 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import Editor, { type EditorController } from "./Editor.svelte";
   import Switcher from "./notes/Switcher.svelte";
+  import Settings from "./settings/Settings.svelte";
   import { notesApi } from "./notes/api";
-  import { settingsApi, type SettingsView } from "./settings/api";
+  import { settingsApi, type AppSettings, type SettingsView } from "./settings/api";
   import { NoteSession } from "./notes/session";
   import { KeystrokeTimer } from "./editor/perf";
 
@@ -14,6 +15,7 @@
   let showStats = $state(false);
   let stats = $state(timer.stats());
   let showSwitcher = $state(false);
+  let showSettings = $state(false);
   let noteName = $state<string | null>(null);
   let notice = $state<string | null>(null);
   /** PRD C9 status line: shown only when the note uses a currency. */
@@ -118,8 +120,33 @@
   /** Applies settings that live in the UI, and reports file problems. */
   function applySettings(view: SettingsView) {
     if (view.problems.length) report(`settings.toml: ${view.problems.join(" ")}`);
+    applyFont(view.settings);
     // Locale and precision are applied by the backend; results need a refresh.
     editor?.reevaluate();
+  }
+
+  /** E7: `auto` is the system monospace font, which follows Omarchy's font. */
+  function applyFont(settings: AppSettings) {
+    const family =
+      settings.font_family === "auto"
+        ? "monospace"
+        : `"${settings.font_family.replaceAll('"', "")}", monospace`;
+    const root = document.documentElement.style;
+    root.setProperty("--editor-font", family);
+    root.setProperty("--editor-font-size", `${settings.font_size}px`);
+  }
+
+  /** Settings screen saves: pending note edits go first (a notes-folder change switches notes). */
+  async function saveSettings(settings: AppSettings) {
+    await session?.flush();
+    await settingsApi.save(settings);
+  }
+
+  /** The notes folder changed: reopen from the new folder. */
+  async function onNotesDirChanged() {
+    session?.closed();
+    noteName = null;
+    await start();
   }
 
   onMount(() => {
@@ -131,10 +158,12 @@
       .get()
       .then((view) => {
         if (view.problems.length) report(`settings.toml: ${view.problems.join(" ")}`);
+        applyFont(view.settings);
       })
       .catch((error: unknown) => report(String(error)));
     const stops = [
       settingsApi.onChanged(applySettings),
+      listen("notes-dir-changed", () => void onNotesDirChanged()),
       listen<{ date: string | null }>("rates-updated", (event) => {
         ratesDate = event.payload.date;
         editor?.reevaluate();
@@ -174,7 +203,11 @@
       // A4: always on top, saved as a setting.
       event.preventDefault();
       void toggleAlwaysOnTop();
-    } else if (event.key === "Escape" && !showSwitcher && !event.defaultPrevented && !inEditorPanel(event)) {
+    } else if (mod && event.key === ",") {
+      event.preventDefault();
+      showSettings = !showSettings;
+      if (!showSettings) editor?.focus();
+    } else if (event.key === "Escape" && !showSwitcher && !showSettings && !event.defaultPrevented && !inEditorPanel(event)) {
       // Key scenario 1: Esc hides the window; edits are saved first.
       event.preventDefault();
       void persist().then(() => getCurrentWindow().hide());
@@ -234,6 +267,16 @@
       ondeleted={(name) => void onDeleted(name)}
       onclose={() => {
         showSwitcher = false;
+        editor?.focus();
+      }}
+      onerror={report}
+    />
+  {/if}
+  {#if showSettings}
+    <Settings
+      onsave={saveSettings}
+      onclose={() => {
+        showSettings = false;
         editor?.focus();
       }}
       onerror={report}

@@ -121,6 +121,57 @@ pub fn load_auto(omarchy_current: &Path) -> Option<Theme> {
         .ok()
 }
 
+/// The user's theme files (`<name>.toml` in `dir`), by name, sorted.
+pub fn list_user_themes(dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(dir)
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .map(|e| e.path())
+                .filter(|p| p.extension().is_some_and(|e| e == "toml"))
+                .filter_map(|p| p.file_stem()?.to_str().map(str::to_string))
+                .filter(|name| !name.starts_with('.'))
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    names
+}
+
+/// The palette for a `theme` setting: `auto` (Omarchy, else `None` for the
+/// built-in palette of the system mode), `light`/`dark` (built-in, forced
+/// mode), or the name of a user theme file.
+pub fn resolve(
+    choice: &str,
+    omarchy_current: &Path,
+    themes_dir: &Path,
+) -> Result<Option<Theme>, String> {
+    let builtin = |mode, name: &str| Theme {
+        name: name.into(),
+        mode,
+        colors: BTreeMap::new(),
+    };
+    match choice {
+        "auto" => Ok(load_auto(omarchy_current)),
+        "light" => Ok(Some(builtin(Mode::Light, "Built-in light"))),
+        "dark" => Ok(Some(builtin(Mode::Dark, "Built-in dark"))),
+        name => {
+            let path = user_theme_path(themes_dir, name);
+            let text = fs::read_to_string(&path).map_err(|e| {
+                format!(
+                    "Could not read the theme '{name}' ({}): {e}",
+                    path.display()
+                )
+            })?;
+            parse(name, &text).map(Some)
+        }
+    }
+}
+
+pub fn user_theme_path(themes_dir: &Path, name: &str) -> PathBuf {
+    themes_dir.join(format!("{name}.toml"))
+}
+
 /// Whether a watch event in Omarchy's current folder may mean a new theme.
 pub fn is_theme_swap(omarchy_current: &Path, path: &Path) -> bool {
     path == omarchy_current.join("theme") || path == omarchy_current.join("theme.name")
@@ -193,6 +244,32 @@ mod tests {
 
         fs::write(current.join("theme/colors.toml"), "= broken").unwrap();
         assert_eq!(load_auto(&current), None);
+    }
+
+    #[test]
+    fn lists_and_resolves_user_themes() {
+        let dir = TempDir::new().unwrap();
+        let themes = dir.path().join("themes");
+        fs::create_dir_all(&themes).unwrap();
+        fs::write(themes.join("ethereal.toml"), ETHEREAL).unwrap();
+        fs::write(themes.join("broken.toml"), "= x").unwrap();
+        fs::write(themes.join("notes.txt"), "x").unwrap();
+        assert_eq!(list_user_themes(&themes), ["broken", "ethereal"]);
+        assert_eq!(
+            list_user_themes(&dir.path().join("missing")),
+            Vec::<String>::new()
+        );
+
+        let omarchy = dir.path().join("no-omarchy");
+        assert_eq!(resolve("auto", &omarchy, &themes), Ok(None));
+        assert_eq!(
+            resolve("light", &omarchy, &themes).unwrap().unwrap().mode,
+            Mode::Light
+        );
+        let user = resolve("ethereal", &omarchy, &themes).unwrap().unwrap();
+        assert_eq!(user.colors["background"], "#060b1e");
+        assert!(resolve("broken", &omarchy, &themes).is_err());
+        assert!(resolve("missing", &omarchy, &themes).is_err());
     }
 
     #[test]

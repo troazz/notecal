@@ -131,13 +131,9 @@ fn main() {
                 commands::resolve_notes_dir(&current, &paths.data_dir()?),
                 commands::state_path(&config_dir),
             )?;
-            let dir = notes.dir();
             app.manage(notes);
-            let handle = app.handle().clone();
-            let watch = watch::watch_dir(&dir, move |changed| {
-                handle.state::<Notes>().on_paths_changed(&handle, &changed);
-            })?;
-            let mut watches = vec![watch];
+            app.state::<Notes>().start_watch(app.handle())?;
+            let mut watches = Vec::new();
 
             // Hand edits of settings.toml apply live.
             let settings_dir = settings
@@ -156,15 +152,24 @@ fn main() {
 
             let omarchy_current = theme::omarchy_current_dir(&paths.home_dir()?);
             // Managed before the watch starts: its callback reads this state.
+            let themes_dir = config_dir.join("notecal").join("themes");
+            std::fs::create_dir_all(&themes_dir)?;
             app.manage(ThemeSource {
                 omarchy_current: omarchy_current.clone(),
+                themes_dir: themes_dir.clone(),
             });
+            let handle = app.handle().clone();
+            watches.push(watch::watch_dir(&themes_dir, move |changed| {
+                handle
+                    .state::<ThemeSource>()
+                    .on_user_themes_changed(&handle, &changed);
+            })?);
             if omarchy_current.is_dir() {
                 let handle = app.handle().clone();
                 match watch::watch_dir(&omarchy_current, move |changed| {
                     handle
                         .state::<ThemeSource>()
-                        .on_paths_changed(&handle, &changed);
+                        .on_omarchy_changed(&handle, &changed);
                 }) {
                     Ok(watch) => watches.push(watch),
                     // Theme following is a nicety; the app works without it.
@@ -186,6 +191,7 @@ fn main() {
             commands::load_state,
             commands::save_state,
             commands::get_theme,
+            commands::list_themes,
             commands::get_settings,
             commands::save_settings,
             shell::shortcut_status,

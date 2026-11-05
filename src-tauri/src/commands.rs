@@ -13,6 +13,7 @@ use crate::rates::{self, Fetch, RatesStatus, RatesStore};
 use crate::settings::{self, AppSettings, SettingsView};
 use crate::state::{self, UiState};
 use crate::theme::{self, Theme};
+use crate::watch::{self, Watch};
 
 /// Shown in the first note on a fresh install (the PRD's example note).
 const SCRATCH_NAME: &str = "Scratch";
@@ -36,6 +37,8 @@ total
 pub const NOTE_CHANGED_ON_DISK: &str = "note-changed-on-disk";
 /// Emitted when any note file was added, removed or changed.
 pub const NOTES_LIST_CHANGED: &str = "notes-list-changed";
+/// Emitted after the notes folder setting changed; the UI reopens a note.
+pub const NOTES_DIR_CHANGED: &str = "notes-dir-changed";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,20 +57,54 @@ struct Inner {
 pub struct Notes {
     inner: Mutex<Inner>,
     state_path: PathBuf,
+    /// Watch on the notes folder; replaced when the folder changes.
+    watch: Mutex<Option<Watch>>,
+}
+
+/// Opens a notes folder, seeding `Scratch` when it holds no notes.
+fn open_store(dir: PathBuf) -> Result<NoteStore, String> {
+    let mut store = NoteStore::new(dir)?;
+    if store.list()?.is_empty() {
+        store.create(SCRATCH_NAME)?;
+        store.save(SCRATCH_NAME, SCRATCH_TEXT, "")?;
+    }
+    Ok(store)
 }
 
 impl Notes {
-    /// Opens the notes folder and seeds `Scratch` when it holds no notes.
     pub fn new(notes_dir: PathBuf, state_path: PathBuf) -> Result<Self, String> {
-        let mut store = NoteStore::new(notes_dir)?;
-        if store.list()?.is_empty() {
-            store.create(SCRATCH_NAME)?;
-            store.save(SCRATCH_NAME, SCRATCH_TEXT, "")?;
-        }
         Ok(Self {
-            inner: Mutex::new(Inner { store, open: None }),
+            inner: Mutex::new(Inner {
+                store: open_store(notes_dir)?,
+                open: None,
+            }),
             state_path,
+            watch: Mutex::new(None),
         })
+    }
+
+    /// Starts (or restarts) watching the current notes folder.
+    pub fn start_watch(&self, app: &AppHandle) -> Result<(), String> {
+        let handle = app.clone();
+        let watch = watch::watch_dir(&self.dir(), move |changed| {
+            handle.state::<Notes>().on_paths_changed(&handle, &changed);
+        })?;
+        *self
+            .watch
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(watch);
+        Ok(())
+    }
+
+    /// Switches to another notes folder (the `notes_dir` setting). Notes are
+    /// not moved; the UI saves pending edits before changing the setting.
+    pub fn relocate(&self, app: &AppHandle, dir: PathBuf) -> Result<(), String> {
+        if dir == self.dir() {
+            return Ok(());
+        }
+        let store = open_store(dir)?;
+        *self.lock() = Inner { store, open: None };
+        self.start_watch(app)
     }
 
     pub fn dir(&self) -> PathBuf {
@@ -176,7 +213,7 @@ impl SettingsState {
     }
 
     /// Stores `view` and applies it; emits `settings-changed` if it differs.
-    fn apply(&self, app: &AppHandle, view: SettingsView) {
+    fn apply(&self, app: &AppHandle, mut view: SettingsView) {
         let mut current = self
             .current
             .lock()
@@ -184,11 +221,19 @@ impl SettingsState {
         if *current == view {
             return;
         }
-        *current = view.clone();
+        let old = std::mem::replace(&mut *current, view.clone()).settings;
         drop(current);
         app.state::<Arc<Evaluator>>()
             .set_settings(view.settings.engine());
         crate::shell::apply_window_settings(app, &view.settings);
+        if old.theme != view.settings.theme {
+            app.state::<ThemeSource>().emit_current(app);
+        }
+        if old.notes_dir != view.settings.notes_dir
+            && let Err(e) = relocate_notes(app, &view.settings)
+        {
+            view.problems.push(e);
+        }
         emit(app, settings::SETTINGS_CHANGED, view);
     }
 
@@ -265,6 +310,15 @@ pub fn rates_path(cache_dir: &Path) -> PathBuf {
 #[tauri::command]
 pub fn rates_status(state: State<'_, RatesState>) -> RatesStatus {
     state.lock().status()
+}
+
+/// Points the notes store and its watch at the folder from settings.
+fn relocate_notes(app: &AppHandle, settings: &AppSettings) -> Result<(), String> {
+    let data_dir = app.path().data_dir().map_err(|e| e.to_string())?;
+    let dir = resolve_notes_dir(settings, &data_dir);
+    app.state::<Notes>().relocate(app, dir)?;
+    emit(app, NOTES_DIR_CHANGED, ());
+    Ok(())
 }
 
 #[tauri::command]
@@ -344,28 +398,57 @@ pub async fn delete_note(name: String, notes: State<'_, Notes>) -> Result<(), St
 /// Where "auto" looks for Omarchy's current theme.
 pub struct ThemeSource {
     pub omarchy_current: PathBuf,
+    /// `~/.config/notecal/themes`, the user's palette files.
+    pub themes_dir: PathBuf,
 }
 
 impl ThemeSource {
+    /// The palette for the current `theme` setting; a broken user theme is
+    /// reported and falls back to "auto".
+    pub fn current(&self, app: &AppHandle) -> Option<Theme> {
+        let choice = app.state::<SettingsState>().view().settings.theme;
+        theme::resolve(&choice, &self.omarchy_current, &self.themes_dir).unwrap_or_else(|e| {
+            eprintln!("notecal: {e}");
+            theme::load_auto(&self.omarchy_current)
+        })
+    }
+
+    pub fn emit_current(&self, app: &AppHandle) {
+        emit(app, theme::THEME_CHANGED, self.current(app));
+    }
+
     /// Handles watch events in Omarchy's current folder.
-    pub fn on_paths_changed(&self, app: &AppHandle, paths: &[PathBuf]) {
-        if paths
-            .iter()
-            .any(|p| theme::is_theme_swap(&self.omarchy_current, p))
+    pub fn on_omarchy_changed(&self, app: &AppHandle, paths: &[PathBuf]) {
+        let follows_omarchy = app.state::<SettingsState>().view().settings.theme == "auto";
+        if follows_omarchy
+            && paths
+                .iter()
+                .any(|p| theme::is_theme_swap(&self.omarchy_current, p))
         {
-            emit(
-                app,
-                theme::THEME_CHANGED,
-                theme::load_auto(&self.omarchy_current),
-            );
+            self.emit_current(app);
+        }
+    }
+
+    /// Handles watch events in the user's themes folder (editing the chosen theme repaints).
+    pub fn on_user_themes_changed(&self, app: &AppHandle, paths: &[PathBuf]) {
+        let choice = app.state::<SettingsState>().view().settings.theme;
+        let chosen = theme::user_theme_path(&self.themes_dir, &choice);
+        if paths.contains(&chosen) {
+            self.emit_current(app);
         }
     }
 }
 
-/// The palette to use, or `None` for the built-in one.
+/// The palette to use, or `None` for the built-in one of the system mode.
 #[tauri::command]
-pub fn get_theme(source: State<'_, ThemeSource>) -> Option<Theme> {
-    theme::load_auto(&source.omarchy_current)
+pub fn get_theme(app: AppHandle, source: State<'_, ThemeSource>) -> Option<Theme> {
+    source.current(&app)
+}
+
+/// Names for the theme picker: user theme files (built-ins are added by the UI).
+#[tauri::command]
+pub fn list_themes(source: State<'_, ThemeSource>) -> Vec<String> {
+    theme::list_user_themes(&source.themes_dir)
 }
 
 #[tauri::command]

@@ -131,13 +131,14 @@ background = true             # close hides to tray; Quit from tray
 - **Validate**: Rust tests with a fake fetcher: no cache + currency → one fetch; fresh cache → no fetch; failure keeps the old cache and backs off; no currency → no fetch; corrupt cache ignored. Golden cases for the no-rates message. Manual: `100 USD in IDR` works online, then offline after a restart.
 - **Done**: the no-rates rule is tested in `notecal-core` unit tests rather than golden files (the golden harness always supplies fixed rates). Currency detection uses the provider's 166 codes (`notecal_core::currency`). The refresh policy is a pure `start_refresh`/`finish` pair, so tests drive time and results directly. Checked live: first currency line fetched once and cached; `100 USD in IDR` → `1,813,216.71 IDR`; status line "Rates: 5 Nov 2026"; after a restart the cache was used with no refetch. Attribution: tooltip on the status line now, full credit line in Settings (Task 6).
 
-### Task 6: Settings screen and fonts (A6, E7)
+### Task 6: Settings screen and fonts (A6, E7) ✅
 - **Action**: `Settings.svelte` (Ctrl+,), font variables, notes-folder switch, Wayland hint, credits.
 - **Validate**: `bun run check`; manual: every control writes `settings.toml` and takes effect without restart.
 
-### Task 7: Theme picker and user themes (from M3)
+### Task 7: Theme picker and user themes (from M3) ✅
 - **Action**: `theme` setting; `list_themes` reads `~/.config/notecal/themes/*.toml` with the existing parser; watch that folder; picker in Settings.
 - **Validate**: Rust tests for listing and loading; manual: copy an Omarchy `colors.toml` into the folder, pick it, edit it, see it repaint.
+- **Done (Tasks 6–7)**: Settings screen (Ctrl+,) with every setting, the shortcut status, and the rates credit (plain text: the webview has no link opener). Checked live by editing `settings.toml` by hand: a user theme (`latte.toml`, copied from Omarchy) repainted the app, `font_family`/`font_size` changed the editor font, and `notes_dir` switched the note list and opened a note from the new folder; removing the file switched back. `light`/`dark` force the built-in palette; a broken user theme is logged and falls back to auto.
 
 ### Task 8: Autocomplete (E5)
 - **Action**: `complete.ts` source: variables, common units, currency codes.

@@ -128,8 +128,8 @@
   }
   .editor :global(.cm-editor) {
     height: 100%;
-    font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
-    font-size: 15px;
+    font-family: var(--editor-font, monospace);
+    font-size: var(--editor-font-size, 15px);
   }
   .editor :global(.cm-editor.cm-focused) {
     outline: none;
