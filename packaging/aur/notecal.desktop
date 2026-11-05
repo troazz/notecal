@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=notecal
+GenericName=Calculator notepad
+Comment=Natural math per line, results as you type
+Exec=notecal
+Icon=notecal
+Terminal=false
+Categories=Utility;Calculator;
+Keywords=calculator;math;notes;units;currency;
+StartupWMClass=notecal

@@ -1,0 +1,19 @@
+pkgbase = notecal
+	pkgdesc = Calculator notepad: natural math per line, results as you type
+	pkgver = 1.0.0
+	pkgrel = 1
+	url = https://github.com/troazz/notecal
+	arch = x86_64
+	arch = aarch64
+	license = MIT
+	makedepends = git
+	makedepends = rust
+	makedepends = bun
+	depends = webkit2gtk-4.1
+	depends = gtk3
+	depends = libayatana-appindicator
+	depends = hicolor-icon-theme
+	source = notecal::git+https://github.com/troazz/notecal.git#tag=v1.0.0
+	sha256sums = SKIP
+
+pkgname = notecal

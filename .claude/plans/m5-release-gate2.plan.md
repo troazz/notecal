@@ -82,9 +82,10 @@ Ship notecal v1.0: CI builds the macOS `.dmg` and the Linux AppImage on every `v
 - **Validate**: `cargo test -p notecal-core` reports ≥ 300 cases, all passing.
 - **Done**: 334 cases (5 new files: currency, locale_id, division, blocks, edge). No engine bugs found; the 18 first-run mismatches were test mistakes (unannotated block lines, a total converting to the first line's currency as the PRD says, sub-cent amounts rounding to 0). Harness minimum raised to 300.
 
-### Task 3: App icon
+### Task 3: App icon ✅
 - **Action**: Draw an original SVG icon, render `source.png`, regenerate the icon set, and check it in the tray, window and `.desktop`.
 - **Validate**: You approve the icon. `tauri icon` output is committed.
+- **Done**: `assets/icon.svg` (approved), rendered to `src-tauri/icons/source.png`; icon set regenerated (Android/iOS/Windows outputs removed).
 
 ### Task 4: Release workflow
 - **Action**: Add `release.yml` (matrix macOS universal and ubuntu-22.04, draft release, size check). Test it with a pre-release tag such as `v0.9.0-rc.1` on a branch, only with your go-ahead, since it creates a GitHub release.
