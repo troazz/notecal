@@ -123,6 +123,10 @@ fn golden() {
     }
     println!("golden cases: {cases}");
     assert!(
+        cases >= 150,
+        "M1 requires at least 150 golden cases, found {cases}"
+    );
+    assert!(
         failures.is_empty(),
         "{} of {cases} golden cases failed:\n{}",
         failures.len(),

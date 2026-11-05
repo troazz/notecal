@@ -66,6 +66,10 @@ pub(crate) fn format_result(
     if currency {
         if r_frac.bytes().all(|b| b == b'0') {
             r_frac.clear();
+        } else {
+            while r_frac.len() < places {
+                r_frac.push('0');
+            }
         }
     } else {
         r_frac.truncate(r_frac.trim_end_matches('0').len());
@@ -194,6 +198,7 @@ mod tests {
         assert_eq!(display("approx. 1234.5678 IDR"), "1,234.57 IDR");
         assert_eq!(display("1060000 IDR"), "1,060,000 IDR");
         assert_eq!(display("approx. 0.999 IDR"), "1 IDR");
+        assert_eq!(display("1234.5 IDR"), "1,234.50 IDR");
     }
 
     #[test]

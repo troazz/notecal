@@ -1,0 +1,21 @@
+;; C3 units and conversion
+1.5 GB in MB => 1,500 MB
+5 km to miles => 3.106856 miles
+1 mile in km => 1.609344 km
+100 kph in mph => 62.137119 mph
+60 mph in km/h => 96.56064 km / h
+20 °C in °F => 68 °F
+20 C in F => 68 °F
+0 °C in K => 273.15 K
+1 acre in m^2 => 4,046.856422 m^2
+100 m^2 in ft^2 => 1,076.391042 ft^2
+1 l in ml => 1,000 ml
+1 kg in lb => 2.204623 lbs
+3 days 4 hours in minutes => 4,560 minutes
+1 hour in seconds => 3,600 seconds
+1 week in days => 7 days
+2 hours + 30 minutes => 2.5 hours
+1 km + 500 m => 1.5 km
+1 GiB in MiB => 1,024 MiB
+1 TB in GB => 1,000 GB
+1 byte in bits => 8 bits

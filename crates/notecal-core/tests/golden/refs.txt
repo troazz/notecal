@@ -30,3 +30,22 @@ x = 4 => 4
 y = 6 => 6
 sum => 10
 prev * 2 => 20
+---
+;; an incompatible line invalidates the block total, not the line itself
+1 km => 1 km
+2 kg => 2 kg
+500 m => 500 m
+sum
+avg
+
+;; the next block starts clean
+3 kg => 3 kg
+2 kg => 2 kg
+sum => 5 kg
+---
+;; a total is not counted in the next total of the same block
+10 => 10
+sum => 10
+5 => 5
+sum => 15
+avg => 7.5
