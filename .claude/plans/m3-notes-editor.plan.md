@@ -151,9 +151,11 @@ enum DiskChange  { Unchanged, Changed(String), Deleted }
 - **Done**: `theme.rs` parses palettes (invalid colours dropped so they fall back; mode inferred from the background if missing) and follows Omarchy by watching `~/.local/state/omarchy/current` for the `theme` folder swap and `theme.name` write that `omarchy theme set` performs. `ui/src/theme.ts` applies the built-in palette before mount (no flash), then the followed theme; the system light/dark switch still applies when no theme is followed. Checked: the app starts in ethereal; a simulated swap to catppuccin-latte (isolated HOME) repaints live; idle CPU unchanged (~1%).
 - **Moved to M4**: user theme files in `~/.config/notecal/themes/` need the theme picker (A6) to be selectable, so they ship with it. The parser they will use is the one here.
 
-### Task 8: Contrast check and wrap-up
+### Task 8: Contrast check and wrap-up ✅
 
-**Performance follow-up (2026-11-05).** The user's hand-typed p95 rose from 45 ms (M2) to 69 ms after Tasks 4–7. Findings: the engine is not the cause (replaying the typed keystrokes: p50 4.5 ms, max 11 ms per step); CodeMirror's `StreamLanguage` re-tokenised every following line per keystroke, and the error gutter added layout work per update. Fixes: a visible-lines highlighter that re-tokenises only edited lines; error markers drawn as line attributes (CSS `::before`), hidden on the cursor line via `highlightActiveLine`; disk-touching commands made `async` so `fsync` never runs on the main thread. Scripted typing (wtype, 90 ms/key, noisy ±40 ms): M2 63–77 ms, M3 before fixes 95–102 ms, after 89 ms. **Decision (user): accept the current latency for now; revisit before Gate 2 (M5).** Built-in contrast is covered by `ui/src/theme.test.ts` (every text colour ≥ 4.5:1 on background and panel).
+**Performance follow-up (2026-11-05).** The user's hand-typed p95 rose from 45 ms (M2) to 69 ms after Tasks 4–7. Findings: the engine is not the cause (replaying the typed keystrokes: p50 4.5 ms, max 11 ms per step); CodeMirror's `StreamLanguage` re-tokenised every following line per keystroke, and the error gutter added layout work per update. Fixes: a visible-lines highlighter that re-tokenises only edited lines; error markers drawn as line attributes (CSS `::before`), hidden on the cursor line via `highlightActiveLine`; disk-touching commands made `async` so `fsync` never runs on the main thread. Scripted typing (wtype, 90 ms/key, noisy ±40 ms): M2 63–77 ms, M3 before fixes 95–102 ms, after 89 ms. **Decision (user): accept the current latency for now; revisit before Gate 2 (M5).**
+
+**Reviews (2026-11-05).** Rust review: fixed a case-only rename that could replace a different note on Linux, conflict copies for long names, sanitising the UI-supplied stamp, and theme state managed before its watcher starts. UI review: fixed undo carrying another note's text across a switch (editor state now replaced, not edited), lost typing with no note open (Scratch is recreated), reloads racing an in-flight save (queued), keystrokes typed during a conflicting save (written to the conflict copy), one failed save blocking all later ones, unhandled errors on note switch, rename/delete during a pending save, clipboard errors, and switcher focus/ARIA. Not changed: blocking disk work on async workers (small files, acceptable), parent-directory fsync, and the check-then-rename window on create/save (tiny, inherent). Built-in contrast is covered by `ui/src/theme.test.ts` (every text colour ≥ 4.5:1 on background and panel).
 - **Action**: Measure text, result, comment and highlight colours against both backgrounds; adjust any below 4.5:1 (3:1 for the gutter marker). Record ratios in the plan. Run `/ecc:rust-review` and `/ecc:code-review`.
 - **Validate**: Every colour pair ≥ 4.5:1; keystroke p95 on the 200-line fixture still ≤ 50 ms with highlighting on.
 
@@ -182,10 +184,10 @@ cd ui && bun run tauri build --no-bundle   # manual checks on target/release/not
 
 ## Acceptance
 
-- [ ] All tasks complete
+- [x] All tasks complete
 - [ ] Validation passes locally and in CI
-- [ ] Every storage rule has a passing test
+- [x] Every storage rule has a passing test
 - [ ] Editing a note while Syncthing (or `echo >>`) changes it never loses text
-- [ ] Contrast ratios recorded and passing (built-in palettes)
-- [ ] notecal follows `omarchy theme set` live
-- [ ] Patterns mirrored, not reinvented
+- [x] Contrast ratios recorded and passing (built-in palettes)
+- [x] notecal follows `omarchy theme set` live
+- [x] Patterns mirrored, not reinvented

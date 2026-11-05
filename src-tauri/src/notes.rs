@@ -138,9 +138,14 @@ impl NoteStore {
             return Ok(SaveOutcome::Saved);
         }
         let disk_text = disk.unwrap_or_default();
-        let copy_name = self.free_name(&format!("{name} (conflict {stamp})"))?;
+        // `disk` is `Some` here: a missing file counts as unchanged above.
+        let copy_name = self.free_name(&conflict_base(name, stamp))?;
         write_atomic(&self.dir, &self.path(&copy_name), text)
             .map_err(|e| format!("Could not write the conflict copy '{copy_name}': {e}"))?;
+        // Known, so the UI can update the copy with keystrokes typed while
+        // this save was in flight.
+        self.known
+            .insert(copy_name.clone(), Known::Content(text.to_string()));
         self.known
             .insert(name.to_string(), Known::Content(disk_text.clone()));
         Ok(SaveOutcome::Conflict {
@@ -168,8 +173,11 @@ impl NoteStore {
         if from == to {
             return Ok(());
         }
-        // Allow changing only the letter case on case-insensitive filesystems.
-        if self.path(to).exists() && !from.eq_ignore_ascii_case(to) {
+        // `to` may "exist" only because it is `from` itself on a
+        // case-insensitive filesystem (changing only the letter case).
+        // Anything else would be replaced by the rename, so refuse.
+        let target = self.path(to);
+        if target.exists() && !same_file(&self.path(from), &target) {
             return Err(format!("A note named '{to}' already exists."));
         }
         fs::rename(self.path(from), self.path(to))
@@ -224,6 +232,45 @@ impl NoteStore {
             .map(|n| format!("{base} {n}"))
             .find(|candidate| !self.path(candidate).exists())
             .ok_or_else(|| format!("Too many notes named '{base}'."))
+    }
+}
+
+/// Room `free_name` may add for a numeric suffix (` 999`).
+const SUFFIX_ROOM: usize = 4;
+
+/// `<name> (conflict <stamp>)`, shortened to stay a valid name. The stamp
+/// comes from the UI, so only digits, spaces and `-` are kept.
+fn conflict_base(name: &str, stamp: &str) -> String {
+    let stamp: String = stamp
+        .chars()
+        .filter(|c| c.is_ascii_digit() || *c == ' ' || *c == '-')
+        .take(16)
+        .collect();
+    let suffix = format!(" (conflict {})", stamp.trim());
+    let budget = MAX_NAME_BYTES - SUFFIX_ROOM - suffix.len();
+    let mut end = name.len().min(budget);
+    while !name.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}{suffix}", name[..end].trim_end())
+}
+
+/// Whether two paths are the same file (for case-only renames).
+fn same_file(a: &Path, b: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match (fs::metadata(a), fs::metadata(b)) {
+            (Ok(a), Ok(b)) => a.dev() == b.dev() && a.ino() == b.ino(),
+            _ => false,
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        match (fs::canonicalize(a), fs::canonicalize(b)) {
+            (Ok(a), Ok(b)) => a == b,
+            _ => false,
+        }
     }
 }
 
@@ -439,6 +486,61 @@ mod tests {
         store.save("A", "a", STAMP).unwrap();
         store.rename("A", "B").unwrap();
         assert_eq!(store.save("B", "b", STAMP), Ok(SaveOutcome::Saved));
+    }
+
+    #[test]
+    fn rename_never_replaces_a_note_that_differs_only_in_case() {
+        let (_dir, mut store) = store();
+        store.create("budget").unwrap();
+        store.save("budget", "lower", STAMP).unwrap();
+        store.create("Budget").unwrap();
+        store.save("Budget", "upper", STAMP).unwrap();
+        // On a case-sensitive filesystem these are two notes; renaming one
+        // onto the other must not destroy it.
+        if store.path("budget") != store.path("Budget")
+            && fs::read_to_string(store.path("Budget")).unwrap() == "upper"
+        {
+            assert!(store.rename("budget", "Budget").is_err());
+            assert_eq!(read(&store, "Budget"), "upper");
+            assert_eq!(read(&store, "budget"), "lower");
+        }
+    }
+
+    #[test]
+    fn rename_can_change_only_the_case() {
+        let (_dir, mut store) = store();
+        store.create("budget").unwrap();
+        store.save("budget", "x", STAMP).unwrap();
+        store.rename("budget", "Budget").unwrap();
+        assert_eq!(read(&store, "Budget"), "x");
+    }
+
+    #[test]
+    fn conflict_copy_fits_long_note_names() {
+        let (_dir, mut store) = store();
+        let name = "n".repeat(MAX_NAME_BYTES);
+        store.create(&name).unwrap();
+        write_externally(&store, &name, "sync");
+        let SaveOutcome::Conflict { copy_name, .. } = store.save(&name, "mine", STAMP).unwrap()
+        else {
+            panic!("expected a conflict");
+        };
+        assert!(copy_name.len() <= MAX_NAME_BYTES);
+        assert!(copy_name.ends_with("(conflict 2026-11-05 1830)"));
+        assert_eq!(read(&store, &copy_name), "mine");
+    }
+
+    #[test]
+    fn conflict_stamp_from_the_ui_is_sanitised() {
+        let (_dir, mut store) = store();
+        store.create("A").unwrap();
+        write_externally(&store, "A", "sync");
+        let outcome = store.save("A", "mine", "../../etc/x\n\0 2026").unwrap();
+        let SaveOutcome::Conflict { copy_name, .. } = outcome else {
+            panic!("expected a conflict");
+        };
+        assert!(validate_name(&copy_name).is_ok(), "{copy_name}");
+        assert_eq!(read(&store, &copy_name), "mine");
     }
 
     #[test]

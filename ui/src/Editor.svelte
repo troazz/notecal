@@ -62,9 +62,7 @@
       onError: (error) => console.error("evaluate failed", error),
     });
 
-    view = new EditorView({
-      parent: host,
-      extensions: [
+    const extensions = [
         // PRD E4: undo/redo, multiple cursors (Ctrl+click, Alt+drag), search.
         highlightSpecialChars(),
         history(),
@@ -88,19 +86,19 @@
           );
           if (typed) timer.keystroke(scheduler.currentVersion, performance.now());
         }),
-      ],
-    });
+    ];
+    view = new EditorView({ parent: host, extensions });
 
     const editor = view;
     onready({
       getText: () => editor.state.doc.toString(),
       setText: (text, cursor) => {
         const anchor = Math.min(cursor ?? editor.state.selection.main.head, text.length);
-        editor.dispatch({
-          changes: { from: 0, to: editor.state.doc.length, insert: text },
-          selection: { anchor },
-          scrollIntoView: true,
-        });
+        // A fresh state, not a change: undo history must never carry text
+        // from another note (or a replaced version) into this one.
+        editor.setState(EditorState.create({ doc: text, selection: { anchor }, extensions }));
+        editor.dispatch({ scrollIntoView: true });
+        scheduler.changed();
       },
       getCursor: () => editor.state.selection.main.head,
       setCursor: (cursor) =>

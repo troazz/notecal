@@ -175,6 +175,147 @@ describe("NoteSession", () => {
   });
 });
 
+describe("NoteSession under races and failures", () => {
+  /** A session whose saves wait until released, to model a save in flight. */
+  function slowSetup() {
+    const disk: Record<string, string> = { A: "a" };
+    const order: string[] = [];
+    const messages: string[] = [];
+    let release: (() => void) | null = null;
+    let conflict: string | null = null;
+    let text = "";
+    const session = new NoteSession({
+      open: async (name) => {
+        order.push(`open:${disk[name]}`);
+        return disk[name]!;
+      },
+      save: async (name, saved) => {
+        order.push(`save:${name}=${saved}`);
+        if (name.includes("conflict")) {
+          disk[name] = saved;
+          return { kind: "saved" };
+        }
+        await new Promise<void>((resolve) => (release = resolve));
+        if (conflict !== null) {
+          const diskText = conflict;
+          conflict = null;
+          disk[`${name} (conflict x)`] = saved;
+          return { kind: "conflict", copyName: `${name} (conflict x)`, diskText };
+        }
+        disk[name] = saved;
+        return { kind: "saved" };
+      },
+      getText: () => text,
+      setText: (t) => {
+        text = t;
+        session.edited();
+      },
+      notify: (m) => messages.push(m),
+      setTimer: () => 0,
+      clearTimer: () => {},
+      now: () => new Date(2026, 10, 5, 18, 7),
+    });
+    const type = (t: string) => {
+      text = t;
+      session.edited();
+    };
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+    return {
+      session,
+      disk,
+      order,
+      messages,
+      type,
+      tick,
+      text: () => text,
+      release: () => release?.(),
+      conflictOnNextSave: (d: string) => (conflict = d),
+    };
+  }
+
+  it("reloads after a save in flight lands, not before", async () => {
+    const s = slowSetup();
+    await s.session.open("A");
+    s.type("mine");
+    const saving = s.session.flush();
+    await s.tick();
+    const reload = s.session.diskChanged({ name: "A", kind: "changed" });
+    await s.tick();
+    expect(s.order).toEqual(["open:a", "save:A=mine"]);
+    s.release();
+    await saving;
+    await reload;
+    // The reload read the file after the save, so it sees "mine".
+    expect(s.order.at(-1)).toBe("open:mine");
+    expect(s.text()).toBe("mine");
+  });
+
+  it("keystrokes typed during a conflicting save end up in the conflict copy", async () => {
+    const s = slowSetup();
+    await s.session.open("A");
+    s.type("mine");
+    s.conflictOnNextSave("from sync");
+    const saving = s.session.flush();
+    await s.tick();
+    s.type("mine plus more");
+    s.release();
+    await saving;
+    expect(s.text()).toBe("from sync");
+    expect(s.disk["A (conflict x)"]).toBe("mine plus more");
+  });
+
+  it("an error inside a save does not stop later saves", async () => {
+    let calls = 0;
+    let text = "x";
+    const messages: string[] = [];
+    const session = new NoteSession({
+      open: async () => "a",
+      save: async () => {
+        calls += 1;
+        return { kind: "saved" };
+      },
+      getText: () => {
+        if (text === "boom") throw new Error("editor gone");
+        return text;
+      },
+      setText: () => {},
+      notify: (m) => messages.push(m),
+      setTimer: () => 0,
+      clearTimer: () => {},
+      now: () => new Date(),
+    });
+    await session.open("A");
+    text = "boom";
+    session.edited();
+    await session.flush();
+    expect(messages.at(-1)).toContain("editor gone");
+    text = "fine";
+    session.edited();
+    await session.flush();
+    expect(calls).toBe(1);
+  });
+
+  it("does not switch notes when the current edits cannot be saved", async () => {
+    const session = new NoteSession({
+      open: async (name) => name.toLowerCase(),
+      save: async () => {
+        throw "disk full";
+      },
+      getText: () => "edited",
+      setText: () => {},
+      notify: () => {},
+      setTimer: () => 0,
+      clearTimer: () => {},
+      now: () => new Date(),
+    });
+    await session.open("A");
+    session.edited();
+    await expect(session.open("B")).rejects.toThrow("unsaved edits");
+    expect(session.name).toBe("A");
+    expect(session.hasUnsavedEdits).toBe(true);
+  });
+});
+
 describe("conflictStamp", () => {
   it("uses local time as YYYY-MM-DD HHMM", () => {
     expect(conflictStamp(new Date(2026, 0, 2, 3, 4))).toBe("2026-01-02 0304");
