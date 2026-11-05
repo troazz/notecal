@@ -113,10 +113,11 @@ enum DiskChange  { Unchanged, Changed(String), Deleted }
 
 ## Tasks
 
-### Task 1: Fix unit division in the engine
+### Task 1: Fix unit division in the engine ✅
 - **Action**: In the preprocessor, wrap a `number unit` operand that follows `/` in parentheses, so `8 km / 2 km` reads as `8 km / (2 km)`. Golden cases: `8 km / 2 km => 4`, `1 GiB / 4 KiB => 262,144`, `100 km / 2 h => 50 km / h`. A bare number divisor (`10 km / 2`) is unchanged.
 - **Mirror**: `rewrite_percentages` token handling in `preprocess.rs`; golden file format.
 - **Validate**: `cargo test -p notecal-core`; benches still within budget (`cargo bench -p notecal-core -- --quick`).
+- **Done**: grouping applies only when the dividend ends in a word (unit or variable), so `10 / 2 m` stays `5 m`; chains like `a / 2 b / 3 c` group each divisor. 218 golden cases pass. `note_200_uncached` unchanged (alternating runs: 14.6–14.8 ms before and after).
 
 ### Task 2: Note storage
 - **Action**: `notes.rs` with `NoteStore`, name validation, atomic write, `list/open/save/create/rename/delete/disk_changed`.

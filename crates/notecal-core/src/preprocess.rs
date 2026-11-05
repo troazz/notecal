@@ -224,6 +224,108 @@ pub(crate) fn rewrite_references(
     })
 }
 
+/// Words that end an operand rather than name a unit.
+const NOT_UNITS: &[&str] = &["in", "to", "as", "of", "mod", "per", "and"];
+
+/// Keeps a divisor's number and unit together: `8 km / 2 km` becomes
+/// `8 km / (2 km)`. fend binds a trailing unit after the division, so the
+/// plain form reads as `(8 km / 2) km`.
+///
+/// Only applies when the dividend itself ends in a word (a unit or a
+/// variable), so `10 / 2 m` keeps fend's reading of `5 m`.
+pub(crate) fn group_unit_divisors(expr: &str) -> String {
+    let mut out = String::with_capacity(expr.len() + 4);
+    let mut rest = expr;
+    // End of the last divisor this function grouped, so a chain like
+    // `a / 2 b / 3 c` keeps grouping after the `)` it added.
+    let mut grouped_end = None;
+    while let Some(slash) = rest.find('/') {
+        let (before, after) = rest.split_at(slash);
+        out.push_str(before);
+        out.push('/');
+        let after = &after[1..];
+        match unit_divisor_len(after) {
+            Some(len)
+                if ends_in_word(&out[..out.len() - 1])
+                    || grouped_end == Some(out[..out.len() - 1].trim_end().len()) =>
+            {
+                let leading = after.len() - after.trim_start().len();
+                out.push_str(&after[..leading]);
+                out.push('(');
+                out.push_str(after[leading..len].trim_end());
+                out.push(')');
+                grouped_end = Some(out.len());
+                rest = &after[len..];
+            }
+            _ => rest = after,
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Length of `  2 km` / `2,000 m^2` at the start of `text` (number, spaces,
+/// one unit word with an optional `^n`), or `None`.
+fn unit_divisor_len(text: &str) -> Option<usize> {
+    let bytes = text.as_bytes();
+    let mut i = text.len() - text.trim_start().len();
+    let number_start = i;
+    while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == b'.' || bytes[i] == b',') {
+        i += 1;
+    }
+    if i == number_start || !bytes[number_start].is_ascii_digit() {
+        return None;
+    }
+    while i < bytes.len() && bytes[i] == b' ' {
+        i += 1;
+    }
+    let word_start = i;
+    while i < bytes.len() && bytes[i].is_ascii_alphabetic() {
+        i += 1;
+    }
+    if i == word_start || NOT_UNITS.contains(&text[word_start..i].to_ascii_lowercase().as_str()) {
+        return None;
+    }
+    if bytes.get(i) == Some(&b'^') {
+        let exp_start = i + 1;
+        let mut j = exp_start;
+        while j < bytes.len() && bytes[j].is_ascii_digit() {
+            j += 1;
+        }
+        if j > exp_start {
+            i = j;
+        }
+    }
+    // A following digit or `_` means this was not a whole unit (`2 km2`).
+    if bytes
+        .get(i)
+        .is_some_and(|b| b.is_ascii_alphanumeric() || *b == b'_')
+    {
+        return None;
+    }
+    Some(i)
+}
+
+fn ends_in_word(text: &str) -> bool {
+    let trimmed = text.trim_end();
+    let word: String = trimmed
+        .chars()
+        .rev()
+        .take_while(|c| c.is_alphanumeric() || *c == '_')
+        .collect();
+    word.chars()
+        .next_back()
+        .is_some_and(|c| c.is_alphabetic() || c == '_')
+        && !NOT_UNITS.contains(
+            &word
+                .chars()
+                .rev()
+                .collect::<String>()
+                .to_ascii_lowercase()
+                .as_str(),
+        )
+}
+
 /// True when the line uses `sum`, `total` or `avg` (whole words only).
 fn uses_total(line: &str) -> bool {
     strip_comment(line)
@@ -418,6 +520,23 @@ fn is_binary(left: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn groups_unit_divisors_only_after_a_word() {
+        assert_eq!(group_unit_divisors("8 km / 2 km"), "8 km / (2 km)");
+        assert_eq!(
+            group_unit_divisors("x / 2,000 m^2 in km"),
+            "x / (2,000 m^2) in km"
+        );
+        assert_eq!(group_unit_divisors("10 / 2 m"), "10 / 2 m");
+        assert_eq!(group_unit_divisors("10 km / 2"), "10 km / 2");
+        assert_eq!(
+            group_unit_divisors("10 km / 2 in miles"),
+            "10 km / 2 in miles"
+        );
+        assert_eq!(group_unit_divisors("a / 2 b / 3 c"), "a / (2 b) / (3 c)");
+        assert_eq!(group_unit_divisors("10 km / 2km"), "10 km / (2km)");
+    }
+
     use super::*;
 
     #[test]

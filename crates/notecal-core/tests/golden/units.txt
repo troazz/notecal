@@ -19,3 +19,16 @@
 1 GiB in MiB => 1,024 MiB
 1 TB in GB => 1,000 GB
 1 byte in bits => 8 bits
+
+;; Division by a quantity with a unit: the divisor's number and unit stay together.
+8 km / 2 km => 4
+1 GiB / 4 KiB => 262,144
+100 km / 2 h => 50 km / h
+1,000 m / 250 m => 4
+;; A bare-number dividend keeps fend's reading: the unit applies to the result.
+10 / 2 m => 5 m
+10 km / 2 => 5 km
+---
+distance = 420 km => 420 km
+distance / 2 km => 210
+distance / 2 => 210 km
