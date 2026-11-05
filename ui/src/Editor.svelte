@@ -20,11 +20,11 @@
     EditorView,
     crosshairCursor,
     drawSelection,
+    highlightActiveLine,
     highlightSpecialChars,
     keymap,
     rectangularSelection,
   } from "@codemirror/view";
-  import { errorGutter } from "./editor/errors";
   import { notecalHighlighting } from "./editor/language";
   import { results, setResults } from "./editor/results";
   import { Scheduler } from "./editor/scheduler";
@@ -76,7 +76,8 @@
         search({ top: true }),
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         notecalHighlighting,
-        errorGutter,
+        // Marks the cursor line so its (half-typed) error marker stays hidden.
+        highlightActiveLine(),
         results,
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
@@ -139,6 +140,9 @@
   .editor :global(.cm-selectionBackground),
   .editor :global(.cm-focused .cm-selectionBackground) {
     background: var(--selection-color) !important;
+  }
+  .editor :global(.cm-activeLine) {
+    background: transparent;
   }
   .editor :global(.cm-selectionMatch) {
     background: color-mix(in srgb, var(--selection-color) 60%, transparent);

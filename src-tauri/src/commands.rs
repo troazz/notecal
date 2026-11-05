@@ -130,13 +130,17 @@ pub fn state_path(config_dir: &Path) -> PathBuf {
     config_dir.join("notecal").join("state.json")
 }
 
+// The commands below touch the disk (and `fsync`), so they are `async`:
+// Tauri runs sync commands on the main thread, where a slow write would
+// stall the window's frames while typing.
+
 #[tauri::command]
-pub fn list_notes(notes: State<'_, Notes>) -> Result<Vec<NoteInfo>, String> {
+pub async fn list_notes(notes: State<'_, Notes>) -> Result<Vec<NoteInfo>, String> {
     notes.lock().store.list()
 }
 
 #[tauri::command]
-pub fn open_note(name: String, notes: State<'_, Notes>) -> Result<String, String> {
+pub async fn open_note(name: String, notes: State<'_, Notes>) -> Result<String, String> {
     let mut inner = notes.lock();
     let text = inner.store.open(&name)?;
     inner.open = Some(name);
@@ -144,7 +148,7 @@ pub fn open_note(name: String, notes: State<'_, Notes>) -> Result<String, String
 }
 
 #[tauri::command]
-pub fn save_note(
+pub async fn save_note(
     name: String,
     text: String,
     stamp: String,
@@ -154,12 +158,12 @@ pub fn save_note(
 }
 
 #[tauri::command]
-pub fn create_note(name: String, notes: State<'_, Notes>) -> Result<(), String> {
+pub async fn create_note(name: String, notes: State<'_, Notes>) -> Result<(), String> {
     notes.lock().store.create(&name)
 }
 
 #[tauri::command]
-pub fn rename_note(from: String, to: String, notes: State<'_, Notes>) -> Result<(), String> {
+pub async fn rename_note(from: String, to: String, notes: State<'_, Notes>) -> Result<(), String> {
     let mut inner = notes.lock();
     inner.store.rename(&from, &to)?;
     if inner.open.as_deref() == Some(from.as_str()) {
@@ -169,7 +173,7 @@ pub fn rename_note(from: String, to: String, notes: State<'_, Notes>) -> Result<
 }
 
 #[tauri::command]
-pub fn delete_note(name: String, notes: State<'_, Notes>) -> Result<(), String> {
+pub async fn delete_note(name: String, notes: State<'_, Notes>) -> Result<(), String> {
     let mut inner = notes.lock();
     inner.store.delete(&name)?;
     if inner.open.as_deref() == Some(name.as_str()) {
@@ -211,6 +215,6 @@ pub fn load_state(notes: State<'_, Notes>) -> UiState {
 }
 
 #[tauri::command]
-pub fn save_state(ui_state: UiState, notes: State<'_, Notes>) -> Result<(), String> {
+pub async fn save_state(ui_state: UiState, notes: State<'_, Notes>) -> Result<(), String> {
     state::save(&notes.state_path, &ui_state)
 }

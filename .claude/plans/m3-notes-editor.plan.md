@@ -152,6 +152,8 @@ enum DiskChange  { Unchanged, Changed(String), Deleted }
 - **Moved to M4**: user theme files in `~/.config/notecal/themes/` need the theme picker (A6) to be selectable, so they ship with it. The parser they will use is the one here.
 
 ### Task 8: Contrast check and wrap-up
+
+**Performance follow-up (2026-11-05).** The user's hand-typed p95 rose from 45 ms (M2) to 69 ms after Tasks 4–7. Findings: the engine is not the cause (replaying the typed keystrokes: p50 4.5 ms, max 11 ms per step); CodeMirror's `StreamLanguage` re-tokenised every following line per keystroke, and the error gutter added layout work per update. Fixes: a visible-lines highlighter that re-tokenises only edited lines; error markers drawn as line attributes (CSS `::before`), hidden on the cursor line via `highlightActiveLine`; disk-touching commands made `async` so `fsync` never runs on the main thread. Scripted typing (wtype, 90 ms/key, noisy ±40 ms): M2 63–77 ms, M3 before fixes 95–102 ms, after 89 ms. **Decision (user): accept the current latency for now; revisit before Gate 2 (M5).** Built-in contrast is covered by `ui/src/theme.test.ts` (every text colour ≥ 4.5:1 on background and panel).
 - **Action**: Measure text, result, comment and highlight colours against both backgrounds; adjust any below 4.5:1 (3:1 for the gutter marker). Record ratios in the plan. Run `/ecc:rust-review` and `/ecc:code-review`.
 - **Validate**: Every colour pair ≥ 4.5:1; keystroke p95 on the 200-line fixture still ≤ 50 ms with highlighting on.
 
