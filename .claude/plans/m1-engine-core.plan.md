@@ -206,3 +206,7 @@ Design changes made during implementation:
 - If adding a line to `_sum` fails (incompatible units), the line is re-evaluated alone and the block total is marked invalid; a timed-out line is not retried.
 - A stray `)` is rejected, because every expression is wrapped in parentheses before fend sees it. An unclosed `(` is left to fend, which closes it.
 - Single-letter names that fend knows as units (`a` ampere, `b` bit, `m` metre) are rejected as variables, per the PRD rule.
+
+## Known issues found after M1
+
+- **Division by a quantity with a unit binds wrongly.** fend parses `8 km / 2 km` as `(8 km / 2) km` = `4 km^2`, and `1 GiB / 4 KiB` as `GiB^2`. Users expect `4` and `262,144`. Parenthesised forms are correct. Fix belongs in the preprocessor (treat `number unit` as one operand before `/`), with golden cases. Found while building the M2 fixture; not yet scheduled.

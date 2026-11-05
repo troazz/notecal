@@ -1,0 +1,200 @@
+# Monthly budget
+rent = 4,500,000
+electricity = 350,000
+internet = 450,000
+groceries = 2,100,000
+total
+20% of prev
+
+# Trip
+distance = 420 km
+distance in miles
+litres = distance / 14
+3 days 4 hours in minutes
+speed = 90 km/h
+distance / speed
+
+# Capacity
+1.5 TB in GB
+500 GB + 10%
+2^20 bytes in KiB
+0xff in binary
+255 in hex
+(1 GiB) / (4 KiB)
+sum
+
+// scratch
+sqrt(2) * 10
+round(2.567)
+50 + 10%
+5 as % of 20
+1/3 + 1/6
+pi * 2^2
+avg
+
+# Monthly budget
+rent = 4,500,000
+electricity = 350,000
+internet = 450,000
+groceries = 2,100,000
+total
+20% of prev
+
+# Trip
+distance = 420 km
+distance in miles
+litres = distance / 14
+3 days 4 hours in minutes
+speed = 90 km/h
+distance / speed
+
+# Capacity
+1.5 TB in GB
+500 GB + 10%
+2^20 bytes in KiB
+0xff in binary
+255 in hex
+(1 GiB) / (4 KiB)
+sum
+
+// scratch
+sqrt(2) * 10
+round(2.567)
+50 + 10%
+5 as % of 20
+1/3 + 1/6
+pi * 2^2
+avg
+
+# Monthly budget
+rent = 4,500,000
+electricity = 350,000
+internet = 450,000
+groceries = 2,100,000
+total
+20% of prev
+
+# Trip
+distance = 420 km
+distance in miles
+litres = distance / 14
+3 days 4 hours in minutes
+speed = 90 km/h
+distance / speed
+
+# Capacity
+1.5 TB in GB
+500 GB + 10%
+2^20 bytes in KiB
+0xff in binary
+255 in hex
+(1 GiB) / (4 KiB)
+sum
+
+// scratch
+sqrt(2) * 10
+round(2.567)
+50 + 10%
+5 as % of 20
+1/3 + 1/6
+pi * 2^2
+avg
+
+# Monthly budget
+rent = 4,500,000
+electricity = 350,000
+internet = 450,000
+groceries = 2,100,000
+total
+20% of prev
+
+# Trip
+distance = 420 km
+distance in miles
+litres = distance / 14
+3 days 4 hours in minutes
+speed = 90 km/h
+distance / speed
+
+# Capacity
+1.5 TB in GB
+500 GB + 10%
+2^20 bytes in KiB
+0xff in binary
+255 in hex
+(1 GiB) / (4 KiB)
+sum
+
+// scratch
+sqrt(2) * 10
+round(2.567)
+50 + 10%
+5 as % of 20
+1/3 + 1/6
+pi * 2^2
+avg
+
+# Monthly budget
+rent = 4,500,000
+electricity = 350,000
+internet = 450,000
+groceries = 2,100,000
+total
+20% of prev
+
+# Trip
+distance = 420 km
+distance in miles
+litres = distance / 14
+3 days 4 hours in minutes
+speed = 90 km/h
+distance / speed
+
+# Capacity
+1.5 TB in GB
+500 GB + 10%
+2^20 bytes in KiB
+0xff in binary
+255 in hex
+(1 GiB) / (4 KiB)
+sum
+
+// scratch
+sqrt(2) * 10
+round(2.567)
+50 + 10%
+5 as % of 20
+1/3 + 1/6
+pi * 2^2
+avg
+
+# Monthly budget
+rent = 4,500,000
+electricity = 350,000
+internet = 450,000
+groceries = 2,100,000
+total
+20% of prev
+
+# Trip
+distance = 420 km
+distance in miles
+litres = distance / 14
+3 days 4 hours in minutes
+speed = 90 km/h
+distance / speed
+
+# Capacity
+1.5 TB in GB
+500 GB + 10%
+2^20 bytes in KiB
+0xff in binary
+255 in hex
+(1 GiB) / (4 KiB)
+sum
+
+// scratch
+sqrt(2) * 10
+round(2.567)
+50 + 10%
+5 as % of 20
