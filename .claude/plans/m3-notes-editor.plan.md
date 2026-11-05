@@ -138,9 +138,10 @@ enum DiskChange  { Unchanged, Changed(String), Deleted }
 - **Validate**: `bun run check`; manual: create, rename, delete, reopen after restart.
 - **Done** (checked in the release build on Hyprland): autosave, external `echo >>` reloads the buffer, typing plus an external write within 500 ms produces `Scratch (conflict 2026-11-05 1841).txt` and a notice, Ctrl+P create/rename (F2)/delete (Ctrl+Delete, confirmed), close saves edits and cursor, relaunch reopens the last note. The window title shows the note name (needs `core:window:allow-set-title`; close needs `core:window:allow-destroy`).
 
-### Task 6: Editor features
+### Task 6: Editor features ✅
 - **Action**: Explicit extension list (E4), `language.ts` (E2), `errors.ts` (error gutter + hover), copy rules (E3 click = display, E8 Alt-click = bare, Mod+Shift+C), announcer (E9).
 - **Validate**: Vitest for the tokenizer (numbers, keywords, comments, assignment names). Manual: highlight, search (Ctrl+F), multi-cursor (Ctrl+click), error hover on `m = 5`, each copy path.
+- **Done**: shortcuts are Mod+Shift+C (copy result as shown), Mod+Shift+B (bare number, E8), Mod+Shift+A (announce, E9); click copies as shown, Alt-click the bare number. Error markers are hidden on the cursor's line so half-typed input does not flicker; the reason shows as the marker's tooltip. Checked in the release build: highlighting, error marker, Ctrl+F, both copy shortcuts.
 
 ### Task 7: Themes (Omarchy and user palettes)
 - **Action**: `theme.rs`: parse a palette (`mode`, `background`, `foreground`, `accent`, `selection`, `muted`, `red`, `yellow`, `green`, `cyan`, `blue`, `magenta`; unknown keys ignored, missing keys fall back to the built-in palette of the same `mode`, invalid colours rejected). Auto source: `~/.local/state/omarchy/current/theme/colors.toml` if it exists, else built-in. Watch the Omarchy `current` directory and `~/.config/notecal/themes/` with the existing debouncer; emit `theme-changed` with the palette. Command `get_theme`. UI `theme.ts` sets CSS variables on `:root`; the syntax `HighlightStyle` and results use only those variables. Role map: number → yellow, unit → cyan, variable → foreground, keyword → magenta, operator → blue, comment/header → muted, result → muted, error → red, selection → selection.

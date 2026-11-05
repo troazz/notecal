@@ -13,7 +13,19 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
-  import { EditorView, minimalSetup } from "codemirror";
+  import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+  import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
+  import { EditorState } from "@codemirror/state";
+  import {
+    EditorView,
+    crosshairCursor,
+    drawSelection,
+    highlightSpecialChars,
+    keymap,
+    rectangularSelection,
+  } from "@codemirror/view";
+  import { errorGutter } from "./editor/errors";
+  import { notecalHighlighting } from "./editor/language";
   import { results, setResults } from "./editor/results";
   import { Scheduler } from "./editor/scheduler";
   import type { KeystrokeTimer } from "./editor/perf";
@@ -53,7 +65,18 @@
     view = new EditorView({
       parent: host,
       extensions: [
-        minimalSetup,
+        // PRD E4: undo/redo, multiple cursors (Ctrl+click, Alt+drag), search.
+        highlightSpecialChars(),
+        history(),
+        drawSelection(),
+        EditorState.allowMultipleSelections.of(true),
+        rectangularSelection(),
+        crosshairCursor(),
+        highlightSelectionMatches(),
+        search({ top: true }),
+        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+        notecalHighlighting,
+        errorGutter,
         results,
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
@@ -112,5 +135,30 @@
   }
   .editor :global(.cm-cursor) {
     border-left-color: var(--text-color);
+  }
+  .editor :global(.cm-selectionBackground),
+  .editor :global(.cm-focused .cm-selectionBackground) {
+    background: var(--selection-color) !important;
+  }
+  .editor :global(.cm-selectionMatch) {
+    background: color-mix(in srgb, var(--selection-color) 60%, transparent);
+  }
+  .editor :global(.cm-panels) {
+    background: var(--panel-color);
+    color: var(--text-color);
+    border-color: var(--border-color);
+    font: 13px system-ui, sans-serif;
+  }
+  .editor :global(.cm-panels input),
+  .editor :global(.cm-panels button) {
+    font: inherit;
+    color: var(--text-color);
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-image: none;
+  }
+  .editor :global(.cm-searchMatch) {
+    background: color-mix(in srgb, var(--accent-color) 30%, transparent);
   }
 </style>
