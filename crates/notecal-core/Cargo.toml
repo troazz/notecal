@@ -1,6 +1,6 @@
 [package]
 name = "notecal-core"
-version = "0.1.0"
+version = "1.0.0"
 description = "Calculation engine for notecal: evaluates a note line by line"
 edition.workspace = true
 rust-version.workspace = true

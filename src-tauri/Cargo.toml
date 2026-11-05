@@ -1,6 +1,6 @@
 [package]
 name = "notecal"
-version = "0.1.0"
+version = "1.0.0"
 description = "Calculator notepad: natural math per line, results as you type"
 edition.workspace = true
 rust-version.workspace = true

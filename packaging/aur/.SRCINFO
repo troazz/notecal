@@ -7,12 +7,13 @@ pkgbase = notecal
 	arch = aarch64
 	license = MIT
 	makedepends = git
-	makedepends = rust
+	makedepends = cargo
 	makedepends = bun
 	depends = webkit2gtk-4.1
 	depends = gtk3
 	depends = libayatana-appindicator
 	depends = hicolor-icon-theme
+	options = !lto
 	source = notecal::git+https://github.com/troazz/notecal.git#tag=v1.0.0
 	sha256sums = SKIP
 

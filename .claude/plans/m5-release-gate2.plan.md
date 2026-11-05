@@ -87,15 +87,16 @@ Ship notecal v1.0: CI builds the macOS `.dmg` and the Linux AppImage on every `v
 - **Validate**: You approve the icon. `tauri icon` output is committed.
 - **Done**: `assets/icon.svg` (approved), rendered to `src-tauri/icons/source.png`; icon set regenerated (Android/iOS/Windows outputs removed).
 
-### Task 4: Release workflow
+### Task 4: Release workflow ✅ (written; first run needs a tag)
 - **Action**: Add `release.yml` (matrix macOS universal and ubuntu-22.04, draft release, size check). Test it with a pre-release tag such as `v0.9.0-rc.1` on a branch, only with your go-ahead, since it creates a GitHub release.
 - **Validate**: The workflow produces a `.dmg` of 15 MB or less and an AppImage, both attached to a draft release.
 
-### Task 5: AUR package
+### Task 5: AUR package ✅ (built locally; publishing is yours)
 - **Action**: Write `PKGBUILD`, `notecal.desktop` and `.SRCINFO`. Build locally with `makepkg` from a local tag or path source.
 - **Validate**: `makepkg` succeeds on Arch, `pacman -Qip` shows an installed size of 15 MB or less, and the installed `notecal --toggle` works from `PATH`. Publishing to the AUR is your step, with the commands in the README.
+- **Done**: built from this repo's `main` with `makepkg -f -d` (toolchain via rustup, so dependency checks skipped locally): package 4.3 MB, installed 10.47 MiB; `check()` ran all tests. Fixes found on the way: `makedepends` uses `cargo` (provided by `rust` and `rustup`), and `options=('!lto')` because makepkg's GCC LTO turned `ring`'s C code into bitcode the Rust linker could not read. Not yet checked: installing it (`sudo pacman -U`) and `notecal --toggle` from `PATH` — your step.
 
-### Task 6: README, CHANGELOG, version 1.0.0
+### Task 6: README, CHANGELOG, version 1.0.0 ✅
 - **Action**: README covering what notecal is, a screenshot, install (AUR, AppImage, unsigned `.dmg` with the right-click → Open note), keybindings and Hyprland setup, files, settings, and credits (fend, open.er-api). Add a CHANGELOG and bump the version to 1.0.0.
 - **Validate**: The docs read correctly and the version string shows everywhere.
 
