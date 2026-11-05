@@ -1,0 +1,52 @@
+;; C6 block and reference rules
+10 => 10
+20 => 20
+30 => 30
+sum => 60
+avg => 20
+prev => 20
+---
+;; A header starts a new block
+1 => 1
+2 => 2
+# Next
+5 => 5
+total => 5
+---
+;; A blank line starts a new block
+100 => 100
+
+7 => 7
+total => 7
+---
+;; Comments are skipped, not counted
+4 // first => 4
+# not a header: comment at line start is a header
+6 => 6
+total => 6
+---
+;; Assignments count toward the total
+a1 = 5 => 5
+a2 = 7 => 7
+sum => 12
+---
+;; Lines that use sum/total/avg are not counted again
+1 => 1
+2 => 2
+sum => 3
+4 => 4
+sum => 7
+---
+;; prev skips lines without a result
+5 => 5
+// comment
+prev * 2 => 10
+---
+;; prev of an assignment is its value
+x1 = 21 => 21
+prev * 2 => 42
+---
+;; Units in a total use the first line's unit
+1 km => 1 km
+500 m => 500 m
+total => 1.5 km

@@ -123,8 +123,8 @@ fn golden() {
     }
     println!("golden cases: {cases}");
     assert!(
-        cases >= 150,
-        "M1 requires at least 150 golden cases, found {cases}"
+        cases >= 300,
+        "v1.0 (PRD M5) requires at least 300 golden cases, found {cases}"
     );
     assert!(
         failures.is_empty(),
