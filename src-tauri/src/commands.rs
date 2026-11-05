@@ -2,12 +2,14 @@
 //! UI. Storage rules live in `notes.rs`; this layer only locks and routes.
 
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::evaluator::Evaluator;
 use crate::notes::{DiskChange, NoteInfo, NoteStore, SaveOutcome};
+use crate::settings::{self, AppSettings, SettingsView};
 use crate::state::{self, UiState};
 use crate::theme::{self, Theme};
 
@@ -128,6 +130,94 @@ pub fn notes_dir(data_dir: &Path) -> PathBuf {
 
 pub fn state_path(config_dir: &Path) -> PathBuf {
     config_dir.join("notecal").join("state.json")
+}
+
+pub fn settings_path(config_dir: &Path) -> PathBuf {
+    config_dir.join("notecal").join("settings.toml")
+}
+
+/// The notes folder: the `notes_dir` setting, or the default under `data_dir`.
+pub fn resolve_notes_dir(settings: &AppSettings, data_dir: &Path) -> PathBuf {
+    if settings.notes_dir.is_empty() {
+        notes_dir(data_dir)
+    } else {
+        PathBuf::from(&settings.notes_dir)
+    }
+}
+
+/// The current settings and where they live.
+pub struct SettingsState {
+    path: PathBuf,
+    current: Mutex<SettingsView>,
+}
+
+impl SettingsState {
+    pub fn new(path: PathBuf) -> Self {
+        let view = settings::load(&path);
+        for problem in &view.problems {
+            eprintln!("notecal: {problem}");
+        }
+        Self {
+            path,
+            current: Mutex::new(view),
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn view(&self) -> SettingsView {
+        self.current
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Stores `view` and applies it; emits `settings-changed` if it differs.
+    fn apply(&self, app: &AppHandle, view: SettingsView) {
+        let mut current = self
+            .current
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if *current == view {
+            return;
+        }
+        *current = view.clone();
+        drop(current);
+        app.state::<Arc<Evaluator>>()
+            .set_settings(view.settings.engine());
+        emit(app, settings::SETTINGS_CHANGED, view);
+    }
+
+    /// Handles watch events in the config folder (hand edits of settings.toml).
+    pub fn on_paths_changed(&self, app: &AppHandle, paths: &[PathBuf]) {
+        if paths.iter().any(|p| p == &self.path) {
+            self.apply(app, settings::load(&self.path));
+        }
+    }
+}
+
+#[tauri::command]
+pub fn get_settings(state: State<'_, SettingsState>) -> SettingsView {
+    state.view()
+}
+
+#[tauri::command]
+pub async fn save_settings(
+    settings: AppSettings,
+    app: AppHandle,
+    state: State<'_, SettingsState>,
+) -> Result<(), String> {
+    settings::save(&state.path, &settings)?;
+    state.apply(
+        &app,
+        SettingsView {
+            settings,
+            problems: Vec::new(),
+        },
+    );
+    Ok(())
 }
 
 // The commands below touch the disk (and `fsync`), so they are `async`:

@@ -6,6 +6,8 @@
     setText: (text: string, cursor?: number) => void;
     getCursor: () => number;
     setCursor: (cursor: number) => void;
+    /** Evaluates again, e.g. after locale, precision or rates changed. */
+    reevaluate: () => void;
     focus: () => void;
   }
 </script>
@@ -57,7 +59,6 @@
         );
       },
       getText: () => view?.state.doc.toString() ?? "",
-      getLocale: () => "en",
       requestFrame: (callback) => requestAnimationFrame(callback),
       onError: (error) => console.error("evaluate failed", error),
     });
@@ -107,6 +108,7 @@
           scrollIntoView: true,
         }),
       focus: () => editor.focus(),
+      reevaluate: () => scheduler.changed(),
     });
     view.focus();
     requestAnimationFrame(() => void invoke("mark_ready"));

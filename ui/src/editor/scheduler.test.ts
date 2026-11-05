@@ -15,7 +15,6 @@ function setup() {
     },
     apply: (response) => applied.push(response),
     getText: () => text,
-    getLocale: () => "en",
     requestFrame: (cb) => frames.push(cb),
   });
   const flushFrame = () => frames.splice(0).forEach((cb) => cb());
@@ -46,7 +45,7 @@ describe("Scheduler", () => {
     s.scheduler.changed();
     expect(s.requests).toHaveLength(0);
     s.flushFrame();
-    expect(s.requests).toEqual([{ version: 3, text: "1+1", locale: "en" }]);
+    expect(s.requests).toEqual([{ version: 3, text: "1+1" }]);
   });
 
   it("applies the response for the current version", async () => {

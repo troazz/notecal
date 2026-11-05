@@ -1,4 +1,4 @@
-import type { EvalRequest, EvalResponse, Locale } from "./types";
+import type { EvalRequest, EvalResponse } from "./types";
 
 export interface SchedulerDeps {
   /** Sends a request; resolves to `null` when the backend skipped it. */
@@ -6,7 +6,6 @@ export interface SchedulerDeps {
   /** Applies results for the current document. */
   apply: (response: EvalResponse) => void;
   getText: () => string;
-  getLocale: () => Locale;
   /** `requestAnimationFrame` in the app; injectable for tests. */
   requestFrame: (callback: () => void) => void;
   onError?: (error: unknown) => void;
@@ -43,7 +42,6 @@ export class Scheduler {
     const request: EvalRequest = {
       version: this.version,
       text: this.deps.getText(),
-      locale: this.deps.getLocale(),
     };
     try {
       const response = await this.deps.invoke(request);

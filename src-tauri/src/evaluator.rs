@@ -2,9 +2,9 @@
 //! request has already replaced (PRD "Evaluation flow").
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard, RwLock};
 
-use notecal_core::{Engine, LineResult, Locale, Settings};
+use notecal_core::{Engine, LineResult, Settings};
 use serde::{Deserialize, Serialize};
 
 /// One `evaluate` call from the editor.
@@ -13,23 +13,6 @@ pub struct EvalRequest {
     /// The editor's document version; higher is newer.
     pub version: u64,
     pub text: String,
-    pub locale: LocaleDto,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LocaleDto {
-    En,
-    Id,
-}
-
-impl From<LocaleDto> for Locale {
-    fn from(locale: LocaleDto) -> Self {
-        match locale {
-            LocaleDto::En => Locale::En,
-            LocaleDto::Id => Locale::Id,
-        }
-    }
 }
 
 /// Results for one request, one entry per line of its text.
@@ -61,6 +44,8 @@ impl From<LineResult> for LineDto {
 pub struct Evaluator {
     engine: Mutex<Engine>,
     latest: AtomicU64,
+    /// Locale and precision from the user's settings.
+    settings: RwLock<Settings>,
 }
 
 impl Evaluator {
@@ -68,6 +53,14 @@ impl Evaluator {
     /// arrives, before it waits for the engine.
     pub fn announce(&self, version: u64) {
         self.latest.fetch_max(version, Ordering::SeqCst);
+    }
+
+    /// Applies new locale/precision settings to later evaluations.
+    pub fn set_settings(&self, settings: Settings) {
+        *self
+            .settings
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = settings;
     }
 
     /// Evaluates the request, or returns `None` if a newer one was announced
@@ -80,10 +73,11 @@ impl Evaluator {
         if self.superseded(request.version) {
             return None;
         }
-        let settings = Settings {
-            locale: request.locale.into(),
-            ..Settings::default()
-        };
+        let settings = self
+            .settings
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
         let lines = engine.evaluate(&request.text, &settings, None);
         Some(EvalResponse {
             version: request.version,
@@ -117,7 +111,6 @@ mod tests {
         EvalRequest {
             version,
             text: text.to_string(),
-            locale: LocaleDto::En,
         }
     }
 
@@ -151,6 +144,18 @@ mod tests {
             .map(LineDto::from)
             .collect();
         assert_eq!(response.lines, expected);
+    }
+
+    #[test]
+    fn uses_the_current_settings() {
+        let evaluator = Evaluator::default();
+        evaluator.set_settings(Settings {
+            locale: notecal_core::Locale::Id,
+            precision: 2,
+        });
+        evaluator.announce(1);
+        let response = evaluator.evaluate(&request(1, "1/3")).unwrap();
+        assert_eq!(response.lines[0].display.as_deref(), Some("0,33"));
     }
 
     #[test]

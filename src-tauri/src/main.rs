@@ -1,6 +1,7 @@
 mod commands;
 mod evaluator;
 mod notes;
+mod settings;
 mod state;
 mod theme;
 mod watch;
@@ -9,7 +10,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use commands::{Notes, ThemeSource};
+use commands::{Notes, SettingsState, ThemeSource};
 use evaluator::{EvalRequest, EvalResponse, Evaluator};
 use tauri::{Manager, State};
 use watch::Watch;
@@ -80,9 +81,13 @@ fn main() {
         .manage(Arc::new(Evaluator::default()))
         .setup(|app| {
             let paths = app.path();
+            let config_dir = paths.config_dir()?;
+            let settings = SettingsState::new(commands::settings_path(&config_dir));
+            let current = settings.view().settings;
+            app.state::<Arc<Evaluator>>().set_settings(current.engine());
             let notes = Notes::new(
-                commands::notes_dir(&paths.data_dir()?),
-                commands::state_path(&paths.config_dir()?),
+                commands::resolve_notes_dir(&current, &paths.data_dir()?),
+                commands::state_path(&config_dir),
             )?;
             let dir = notes.dir();
             app.manage(notes);
@@ -91,6 +96,21 @@ fn main() {
                 handle.state::<Notes>().on_paths_changed(&handle, &changed);
             })?;
             let mut watches = vec![watch];
+
+            // Hand edits of settings.toml apply live.
+            let settings_dir = settings
+                .path()
+                .parent()
+                .map(std::path::Path::to_path_buf)
+                .unwrap_or_default();
+            std::fs::create_dir_all(&settings_dir)?;
+            app.manage(settings);
+            let handle = app.handle().clone();
+            watches.push(watch::watch_dir(&settings_dir, move |changed| {
+                handle
+                    .state::<SettingsState>()
+                    .on_paths_changed(&handle, &changed);
+            })?);
 
             let omarchy_current = theme::omarchy_current_dir(&paths.home_dir()?);
             // Managed before the watch starts: its callback reads this state.
@@ -124,6 +144,8 @@ fn main() {
             commands::load_state,
             commands::save_state,
             commands::get_theme,
+            commands::get_settings,
+            commands::save_settings,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start the notecal window");
