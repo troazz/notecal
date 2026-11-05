@@ -129,13 +129,14 @@ enum DiskChange  { Unchanged, Changed(String), Deleted }
 - **Note**: the conflict-file timestamp (`YYYY-MM-DD HHMM`, local time) is passed in by the UI with each save, so Rust needs no date/time-zone dependency.
 - **Validate**: Unit tests for `state.rs`. Manual: `echo 1+1 >> ~/.local/share/notecal/notes/Scratch.txt` while the app is open reloads the buffer; idle CPU still ~1% (`top`).
 
-### Task 4: Autosave session in the UI
+### Task 4: Autosave session in the UI ✅
 - **Action**: `session.ts` + wiring in `Editor.svelte`/`App.svelte`; save on 500 ms debounce, on switch, on blur and before close.
 - **Validate**: Vitest: rapid edits make one save after 500 ms; switching notes flushes first; an external change while clean reloads; while dirty, saves then shows the conflict notice.
 
-### Task 5: Quick switcher
+### Task 5: Quick switcher ✅
 - **Action**: `Switcher.svelte` with filter, create, rename, delete and keyboard navigation; reopen last note and cursor (N4).
 - **Validate**: `bun run check`; manual: create, rename, delete, reopen after restart.
+- **Done** (checked in the release build on Hyprland): autosave, external `echo >>` reloads the buffer, typing plus an external write within 500 ms produces `Scratch (conflict 2026-11-05 1841).txt` and a notice, Ctrl+P create/rename (F2)/delete (Ctrl+Delete, confirmed), close saves edits and cursor, relaunch reopens the last note. The window title shows the note name (needs `core:window:allow-set-title`; close needs `core:window:allow-destroy`).
 
 ### Task 6: Editor features
 - **Action**: Explicit extension list (E4), `language.ts` (E2), `errors.ts` (error gutter + hover), copy rules (E3 click = display, E8 Alt-click = bare, Mod+Shift+C), announcer (E9).
