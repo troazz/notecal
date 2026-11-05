@@ -40,11 +40,31 @@ fn mark_ready(startup: State<'_, Startup>) {
     eprintln!("notecal: ready {since_main} ms after main (epoch_ms={epoch_ms})");
 }
 
+/// WebKitGTK's DMABUF renderer kept the app at ~11% CPU while idle on
+/// Hyprland; without it idle CPU is ~1%, and cold start and RAM also drop
+/// (docs/gate1.md). Respects an explicit setting, so
+/// `WEBKIT_DISABLE_DMABUF_RENDERER=0` turns the renderer back on.
+#[cfg(target_os = "linux")]
+fn configure_webkit() {
+    const VAR: &str = "WEBKIT_DISABLE_DMABUF_RENDERER";
+    if std::env::var_os(VAR).is_none() {
+        // SAFETY: called first thing in `main`, before Tauri or anything
+        // else has started a thread, so nothing reads the environment
+        // concurrently.
+        #[allow(unsafe_code)]
+        unsafe {
+            std::env::set_var(VAR, "1");
+        }
+    }
+}
+
 fn main() {
     let startup = Startup {
         at: Instant::now(),
         reported: AtomicBool::new(false),
     };
+    #[cfg(target_os = "linux")]
+    configure_webkit();
     tauri::Builder::default()
         .manage(startup)
         .manage(Arc::new(Evaluator::default()))

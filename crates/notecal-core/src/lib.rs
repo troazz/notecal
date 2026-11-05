@@ -8,6 +8,8 @@
 //! Variables live in the engine's evaluation state, which belongs to one
 //! note: use one `Engine` per open note.
 
+#![forbid(unsafe_code)]
+
 mod format;
 mod preprocess;
 
