@@ -1,0 +1,26 @@
+# Rust
+/target/
+**/target/
+
+# Node / UI
+node_modules/
+dist/
+.svelte-kit/
+*.log
+
+# Tauri
+src-tauri/gen/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# Claude Code local settings
+.claude/settings.local.json
