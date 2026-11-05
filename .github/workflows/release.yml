@@ -1,0 +1,86 @@
+name: Release
+
+# A `v*` tag builds the macOS .dmg and the Linux AppImage and attaches them to
+# a draft GitHub Release for review (PRD M5). The AUR package builds from the
+# tagged source instead (packaging/aur/PKGBUILD).
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target universal-apple-darwin --bundles dmg
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+          # Older glibc so the AppImage runs on more distributions.
+          - platform: ubuntu-22.04
+            args: --bundles appimage
+            rust-targets: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev build-essential
+
+      - uses: oven-sh/setup-bun@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: bun install --frozen-lockfile
+
+      - name: Build and attach to a draft release
+        id: tauri
+        uses: tauri-apps/tauri-action@action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: ui
+          tauriScript: bun run tauri
+          args: ${{ matrix.args }}
+          tagName: ${{ github.ref_name }}
+          releaseName: notecal ${{ github.ref_name }}
+          releaseBody: See CHANGELOG.md. The macOS build is unsigned; open it once with right-click → Open.
+          releaseDraft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+
+      # PRD package-size budget: .dmg ≤ 15 MB; the AppImage bundles WebKitGTK,
+      # so its size is reported, not budgeted.
+      - name: Check bundle sizes
+        shell: bash
+        env:
+          ARTIFACTS: ${{ steps.tauri.outputs.artifactPaths }}
+        run: |
+          status=0
+          while IFS= read -r path; do
+            [ -f "$path" ] || continue
+            # GNU stat first: on Linux `stat -f` means filesystem status.
+            size=$(stat -c%s "$path" 2>/dev/null || stat -f%z "$path")
+            mb=$(awk -v s="$size" 'BEGIN { printf "%.1f", s / 1048576 }')
+            echo "$(basename "$path"): ${mb} MB"
+            echo "- $(basename "$path"): ${mb} MB" >> "$GITHUB_STEP_SUMMARY"
+            case "$path" in
+              *.dmg)
+                if [ "$size" -gt $((15 * 1024 * 1024)) ]; then
+                  echo "::error::$(basename "$path") is ${mb} MB, over the 15 MB budget"
+                  status=1
+                fi ;;
+            esac
+          done < <(echo "$ARTIFACTS" | jq -r '.[]')
+          exit $status

@@ -1,0 +1,41 @@
+# Maintainer: Puas Citro <puas.citro@gmail.com>
+pkgname=notecal
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Calculator notepad: natural math per line, results as you type"
+arch=('x86_64' 'aarch64')
+url="https://github.com/troazz/notecal"
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'hicolor-icon-theme')
+makedepends=('git' 'rust' 'bun')
+source=("$pkgname::git+$url.git#tag=v$pkgver")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "$pkgname/ui"
+  bun install --frozen-lockfile
+}
+
+build() {
+  cd "$pkgname/ui"
+  # Builds the UI, then the Rust binary with the workspace release profile.
+  bun run tauri build --no-bundle
+}
+
+check() {
+  # Debug test build: the release profile (fat LTO) would double the build time.
+  cd "$pkgname"
+  cargo test --workspace --frozen
+}
+
+package() {
+  cd "$pkgname"
+  install -Dm755 target/release/notecal "$pkgdir/usr/bin/notecal"
+  install -Dm644 packaging/aur/notecal.desktop "$pkgdir/usr/share/applications/notecal.desktop"
+  install -Dm644 src-tauri/icons/32x32.png "$pkgdir/usr/share/icons/hicolor/32x32/apps/notecal.png"
+  install -Dm644 src-tauri/icons/128x128.png "$pkgdir/usr/share/icons/hicolor/128x128/apps/notecal.png"
+  install -Dm644 src-tauri/icons/128x128@2x.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/notecal.png"
+  install -Dm644 assets/icon.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/notecal.svg"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 docs/linux-setup.md "$pkgdir/usr/share/doc/$pkgname/linux-setup.md"
+}
