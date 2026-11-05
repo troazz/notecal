@@ -4,6 +4,7 @@
 
   let {
     current,
+    beforechange,
     onopen,
     onrenamed,
     ondeleted,
@@ -11,6 +12,8 @@
     onerror,
   }: {
     current: string | null;
+    /** Settles pending saves, so none lands on a renamed or deleted note. */
+    beforechange: () => Promise<void>;
     onopen: (name: string) => void;
     onrenamed: (from: string, to: string) => void;
     ondeleted: (name: string) => void;
@@ -85,6 +88,7 @@
     renaming = null;
     if (target && target !== from) {
       try {
+        await beforechange();
         await notesApi.rename(from, target);
         onrenamed(from, target);
         await refresh();
@@ -100,6 +104,7 @@
     confirmDelete = null;
     if (!name) return;
     try {
+      await beforechange();
       await notesApi.delete(name);
       ondeleted(name);
       await refresh();
@@ -127,6 +132,10 @@
     }
     const row = rows[selected];
     switch (event.key) {
+      case "Tab":
+        // Keep focus inside the dialog; the input is its only stop.
+        input.focus();
+        break;
       case "ArrowDown":
         selected = Math.min(selected + 1, rows.length - 1);
         break;
@@ -163,13 +172,14 @@
       placeholder="Find or create a note"
       aria-label="Find or create a note"
       role="combobox"
-      aria-expanded="true"
+      aria-expanded={rows.length > 0}
       aria-controls="note-list"
       aria-activedescendant={rows.length ? `note-row-${selected}` : undefined}
       spellcheck="false"
       autocomplete="off"
     />
-    <ul id="note-list" role="listbox" aria-label="Notes">
+    <!-- Clicking a row must not take focus from the input. -->
+    <ul id="note-list" role="listbox" aria-label="Notes" onmousedown={(e) => e.preventDefault()}>
       {#each rows as row, i (row.kind + row.name)}
         <li
           id="note-row-{i}"
@@ -219,9 +229,14 @@
           {/if}
         </li>
       {:else}
-        <li class="empty">Type a name to create a note</li>
+        <li class="empty" role="option" aria-selected="false" aria-disabled="true">
+          Type a name to create a note
+        </li>
       {/each}
     </ul>
+    <p class="sr-only" aria-live="assertive">
+      {confirmDelete ? `Delete “${confirmDelete}”? Press Enter to delete, any other key to keep.` : ""}
+    </p>
     <p class="hint">Enter open · F2 rename · Ctrl+Delete delete · Esc close</p>
   </div>
 </div>
@@ -314,6 +329,14 @@
     padding: 0.1rem 0.3rem;
     border: 1px solid var(--accent-color);
     border-radius: 4px;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .hint {
     margin: 0;

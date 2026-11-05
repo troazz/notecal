@@ -54,11 +54,7 @@
     try {
       const [state, notes] = await Promise.all([notesApi.loadState(), notesApi.list()]);
       const last = notes.find((n) => n.name === state.lastNote)?.name;
-      const name = last ?? notes[0]?.name;
-      if (name === undefined) {
-        showSwitcher = true;
-        return;
-      }
+      const name = last ?? notes[0]?.name ?? (await createScratch());
       await openNote(name, last ? state.cursor : 0);
     } catch (error) {
       report(String(error));
@@ -67,13 +63,23 @@
 
   async function openNote(name: string, cursor = 0) {
     if (!session || !editor) return;
-    await saveState();
-    await session.open(name);
-    editor.setCursor(cursor);
-    noteName = name;
-    showSwitcher = false;
-    editor.focus();
-    await saveState();
+    try {
+      await saveState();
+      await session.open(name);
+      editor.setCursor(cursor);
+      noteName = name;
+      showSwitcher = false;
+      editor.focus();
+      await saveState();
+    } catch (error) {
+      report(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  /** There is always a note open, so typing is never lost: recreate Scratch when none exist. */
+  async function createScratch(): Promise<string> {
+    await notesApi.create("Scratch");
+    return "Scratch";
   }
 
   async function saveState() {
@@ -95,9 +101,12 @@
     if (session?.name !== name) return;
     session.closed();
     noteName = null;
-    editor?.setText("");
-    const next = (await notesApi.list())[0]?.name;
-    if (next) await openNote(next);
+    try {
+      const next = (await notesApi.list())[0]?.name ?? (await createScratch());
+      await openNote(next);
+    } catch (error) {
+      report(String(error));
+    }
   }
 
   onMount(() => {
@@ -142,6 +151,7 @@
   {#if showSwitcher}
     <Switcher
       current={noteName}
+      beforechange={() => session?.flush() ?? Promise.resolve()}
       onopen={(name) => void openNote(name)}
       onrenamed={(from, to) => {
         session?.renamed(from, to);
@@ -157,7 +167,7 @@
     />
   {/if}
   {#if notice}
-    <div class="notice" role="status">
+    <div class="notice" role="alert">
       <span>{notice}</span>
       <button type="button" onclick={() => (notice = null)} aria-label="Dismiss">Dismiss</button>
     </div>

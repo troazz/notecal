@@ -45,8 +45,10 @@ export class NoteSession {
   private timer: unknown = null;
   /** Set while the session itself replaces the text, so that is not an edit. */
   private replacing = false;
-  /** Saves run one at a time, in order. */
+  /** Saves and reloads run one at a time, in order; this never rejects. */
   private queue: Promise<void> = Promise.resolve();
+  /** Counts edits, to notice typing that happens while a save or load is awaited. */
+  private generation = 0;
 
   constructor(private readonly deps: SessionDeps) {}
 
@@ -58,9 +60,19 @@ export class NoteSession {
     return this.dirty;
   }
 
-  /** Saves the current note if needed, then shows `name`. */
+  /**
+   * Saves the current note, then shows `name`. Throws, without switching,
+   * if the current note's edits could not be saved.
+   */
   async open(name: string): Promise<void> {
-    await this.flush();
+    let seen: number;
+    do {
+      seen = this.generation;
+      await this.flush();
+    } while (this.generation !== seen);
+    if (this.dirty) {
+      throw new Error(`“${this.current}” has unsaved edits that could not be saved.`);
+    }
     const text = await this.deps.open(name);
     this.current = name;
     this.dirty = false;
@@ -70,6 +82,7 @@ export class NoteSession {
   /** Call after every document change. */
   edited(): void {
     if (this.replacing || this.current === null) return;
+    this.generation += 1;
     this.dirty = true;
     this.cancelTimer();
     this.timer = this.deps.setTimer(() => {
@@ -81,7 +94,13 @@ export class NoteSession {
   /** Saves now if there are unsaved edits (note switch, blur, close). */
   flush(): Promise<void> {
     this.cancelTimer();
-    this.queue = this.queue.then(() => this.saveIfDirty());
+    return this.enqueue(() => this.saveIfDirty());
+  }
+
+  private enqueue(task: () => Promise<void>): Promise<void> {
+    this.queue = this.queue.then(task).catch((error: unknown) => {
+      this.deps.notify(`Something went wrong while saving: ${String(error)}`);
+    });
     return this.queue;
   }
 
@@ -98,23 +117,29 @@ export class NoteSession {
   }
 
   /** Handles `note-changed-on-disk` from the watcher. */
-  async diskChanged(event: DiskChangeEvent): Promise<void> {
-    if (event.name !== this.current) return;
+  diskChanged(event: DiskChangeEvent): Promise<void> {
     // Deleted: keep the buffer; the next save writes the file again.
-    if (event.kind === "deleted") return;
-    if (this.dirty) {
-      // Rust sees the disk differ and keeps both versions.
-      await this.flush();
-      return;
-    }
-    const text = await this.deps.open(event.name);
-    if (!this.dirty && this.current === event.name) this.replace(text);
+    if (event.kind === "deleted") return Promise.resolve();
+    // Queued behind any save in flight, so the file is read after it lands.
+    return this.enqueue(async () => {
+      if (event.name !== this.current) return;
+      if (this.dirty) {
+        // Rust sees the disk differ and keeps both versions.
+        this.cancelTimer();
+        await this.saveIfDirty();
+        return;
+      }
+      const seen = this.generation;
+      const text = await this.deps.open(event.name);
+      if (!this.dirty && this.generation === seen && this.current === event.name) this.replace(text);
+    });
   }
 
   private async saveIfDirty(): Promise<void> {
     const name = this.current;
     if (!this.dirty || name === null) return;
     const text = this.deps.getText();
+    const seen = this.generation;
     this.dirty = false;
     let outcome: SaveOutcome;
     try {
@@ -125,7 +150,11 @@ export class NoteSession {
       return;
     }
     if (outcome.kind === "conflict" && this.current === name) {
+      // Keystrokes typed while the save was awaited are newer than the copy.
+      const latest = this.generation === seen ? null : this.deps.getText();
       this.replace(outcome.diskText);
+      this.dirty = false;
+      if (latest !== null) await this.deps.save(outcome.copyName, latest, conflictStamp(this.deps.now()));
       this.deps.notify(
         `“${name}” was changed outside notecal. Your version was saved as “${outcome.copyName}”.`,
       );

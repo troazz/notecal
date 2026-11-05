@@ -136,10 +136,19 @@ function resultUnderPointer(
 
 /** Copies `text` and briefly shows "Copied" in place of the line's result. */
 function copyResult(view: EditorView, lineStart: number, text: string): void {
-  void navigator.clipboard.writeText(text).then(() => {
-    view.dispatch({ effects: flashCopied.of(lineStart) });
-    setTimeout(() => view.dispatch({ effects: flashCopied.of(null) }), COPIED_FLASH_MS);
-  });
+  const doc = view.state.doc;
+  navigator.clipboard
+    .writeText(text)
+    .then(() => {
+      // The note may have changed while the clipboard call was pending.
+      if (view.state.doc !== doc) return;
+      view.dispatch({ effects: flashCopied.of(lineStart) });
+      setTimeout(() => view.dispatch({ effects: flashCopied.of(null) }), COPIED_FLASH_MS);
+    })
+    .catch((error: unknown) => {
+      view.plugin(announcer)?.say("Could not copy the result");
+      console.error("clipboard write failed", error);
+    });
 }
 
 /** The result shown on the line holding the main cursor, if any. */

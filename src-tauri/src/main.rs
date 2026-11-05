@@ -93,6 +93,10 @@ fn main() {
             let mut watches = vec![watch];
 
             let omarchy_current = theme::omarchy_current_dir(&paths.home_dir()?);
+            // Managed before the watch starts: its callback reads this state.
+            app.manage(ThemeSource {
+                omarchy_current: omarchy_current.clone(),
+            });
             if omarchy_current.is_dir() {
                 let handle = app.handle().clone();
                 match watch::watch_dir(&omarchy_current, move |changed| {
@@ -105,7 +109,6 @@ fn main() {
                     Err(e) => eprintln!("notecal: {e}"),
                 }
             }
-            app.manage(ThemeSource { omarchy_current });
             app.manage(Watches(Mutex::new(watches)));
             Ok(())
         })
