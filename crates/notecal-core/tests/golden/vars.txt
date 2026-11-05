@@ -1,0 +1,26 @@
+;; C5 variables, per note
+price = 5 => 5
+price * 2 => 10
+qty = price + 1 => 6
+price = 10 => 10
+price + qty => 16
+rent = 4,500,000 IDR => 4,500,000 IDR
+rent * 2 => 9,000,000 IDR
+x = 3 => 3
+y_2 = x ^ 2 => 9
+;; built-in and reserved names are rejected (a is ampere, b is bit, m is metre)
+a = 5
+b = 2
+m = 5
+e = 2
+pi = 3
+sum = 3
+prev = 1
+_x = 1
+in = 4
+;; the rejected assignment did not shadow the unit
+5 m in cm => 500 cm
+---
+;; variables do not leak between notes
+price
+rent

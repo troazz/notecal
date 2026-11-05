@@ -1,0 +1,6 @@
+;; C7 comments and headers show nothing
+# Header
+// a comment
+   # indented header
+1 + 1 => 2
+// 1 + 1

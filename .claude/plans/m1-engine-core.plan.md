@@ -6,7 +6,7 @@
 
 ## Summary
 
-Build `crates/notecal-core`: a pure Rust library that takes a whole note and returns one result per line. It wraps fend-core 1.5.9 and adds a small preprocessor for Numi syntax: percentages, `prev`/`sum`/`total`/`avg`, comments and headers, locale separators, and display formatting. It covers C1–C8, C10, C12 and C13 plus the PRD's Language rules. The milestone is done when ≥ 150 golden cases pass, a property test shows no input panics or hangs, and criterion benches meet the engine budgets (≤ 40 µs per line median, ≤ 8 ms per 200-line note).
+Build `crates/notecal-core`: a pure Rust library that takes a whole note and returns one result per line. It wraps fend-core 1.5.9 and adds a small preprocessor for Numi syntax: percentages, `prev`/`sum`/`total`/`avg`, comments and headers, locale separators, and display formatting. It covers C1–C8, C10, C12 and C13 plus the PRD's Language rules. The milestone is done when ≥ 150 golden cases pass, a property test shows no input panics or hangs, and criterion benches meet the engine budgets (≤ 200 µs per line median, ≤ 15 ms per uncached 200-line note, ≤ 2 ms to re-evaluate after editing the last line). Budgets were revised after the Task 2 spike.
 
 ## Requirements restated
 
@@ -23,7 +23,7 @@ Build `crates/notecal-core`: a pure Rust library that takes a whole note and ret
 | Display | Currencies 2 dp; others up to `precision` (default 6), trailing zeros trimmed; group separators |
 | Robustness | A panic in one line affects only that line |
 
-Out of scope for M1: fetching currency rates (M4), IPC and threading (M2), and a per-line result cache. The cache is only added if Task 9's benches miss the budget.
+Out of scope for M1: fetching currency rates (M4), IPC and threading (M2). The per-line result cache is in scope (Task 10) because fend costs ~120 µs per line.
 
 ## Key facts from fend-core 1.5.9 (checked in source)
 
@@ -46,7 +46,7 @@ pub struct LineResult { pub display: Option<String>, pub copy: Option<String>, p
 pub fn evaluate_note(text: &str, settings: &Settings, rates: Option<&Rates>) -> Vec<LineResult>;
 ```
 
-It is one stateless function: it creates a fresh fend `Context` per call, so variables are scoped to the note. If the cache is ever needed, it stays an internal detail behind the same function.
+`Engine::evaluate(&mut self, text, settings, rates)` keeps a prefix cache: each line's result plus the fend `Context` after it. Lines above the first changed line are reused; evaluation resumes from the cached context. Settings or rates changes clear the cache. `evaluate_note` is a one-shot convenience that uses a fresh `Engine`, so variables stay scoped to one note.
 
 Per line, top to bottom:
 
@@ -128,8 +128,8 @@ Per line, top to bottom:
 - **Validate**: `tests/robustness.rs` passes: no panic escapes, every line returns within 100 ms, and a pathological line leaves neighbouring lines' results intact.
 
 ### Task 10: Benchmarks
-- **Action**: Criterion benches for one typical line and a realistic 200-line note (mix of units, currency, percentages and references). If either misses its budget, profile first. Add the per-line cache only if the profile shows re-evaluation is the cost.
-- **Validate**: `cargo bench -p notecal-core` reports single line ≤ 40 µs median and 200-line note ≤ 8 ms on the Arch machine.
+- **Action**: Criterion benches for one typical line, a realistic uncached 200-line note (mix of units, currency, percentages and references), and an edit to the last line of that note through `Engine`. If any misses its budget, profile first.
+- **Validate**: `cargo bench -p notecal-core` reports single line ≤ 200 µs median, uncached 200-line note ≤ 15 ms, last-line edit ≤ 2 ms on the Arch machine.
 
 ## Validation
 
@@ -145,7 +145,7 @@ cargo bench -p notecal-core                               # manual budget check
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| fend is slower than 40 µs per line (Context clone per line, unit lookups) | Medium | Task 2 measures in week 1; snapshot only before assignment lines; per-line cache as fallback (Task 10) |
+| fend is slow (~120 µs per line, measured) | Certain | Budgets revised from measurement; prefix cache in `Engine` (Task 10 verifies) |
 | fend's interrupt is not checked inside some long operation, so the 50 ms limit is missed | Medium | Task 2 and Task 9 test huge exponents and factorials; if a gap exists, reject such literals in the preprocessor before evaluation |
 | Percent rewrites misfire on edge cases (`10% * 3`, `50 + 10% of 20`) | Medium | Token-based rewriting with paren depth; every ambiguous form gets a golden case and a PRD clarification if needed |
 | fend output strings are awkward to reformat (approximations, unit plurals) | Medium | Task 2 records the shapes; formatter works from fend's output plus a dp conversion if fend supports one |
@@ -158,7 +158,8 @@ cargo bench -p notecal-core                               # manual budget check
 - [ ] Validation passes in CI and locally
 - [ ] ≥ 150 golden cases pass, including every row in the PRD Language rules
 - [ ] Property test: no panic, no line over 100 ms
-- [ ] Benches meet ≤ 40 µs per line and ≤ 8 ms per 200-line note
+- [ ] Benches meet ≤ 200 µs per line, ≤ 15 ms per uncached 200-line note, ≤ 2 ms per last-line edit
+- [ ] Incremental `Engine` results equal fresh `evaluate_note` results (equivalence test)
 - [ ] Patterns mirrored, not reinvented (greenfield: conventions above become the patterns for M2+)
 
 ## Task 2 findings (fend-core 1.5.9, release build, Arch machine, 2026-11-05)
@@ -185,4 +186,4 @@ cargo bench -p notecal-core                               # manual budget check
 | C13 interrupt | `10^10^10` and `1000000!` stop at 50.1 ms | No |
 | Context clone | Clone per line adds ~5% (11.9 vs 11.3 ms per 200 lines) | Snapshot per line is fine |
 
-**Speed (budget miss).** Single line: 8–60 µs for arithmetic, 85–200 µs for unit conversions; mean ~120 µs. A 200-line mixed note: ~11.3 ms. Both miss the PRD engine budgets (40 µs, 8 ms). The cost is inside fend's evaluation, not context setup.
+**Speed (budget miss).** Single line: 8–60 µs for arithmetic, 85–200 µs for unit conversions; mean ~120 µs. A 200-line mixed note: ~11.3 ms. Both missed the original PRD engine budgets (40 µs, 8 ms); budgets were revised to 200 µs / 15 ms / 2 ms with a required prefix cache. The cost is inside fend's evaluation, not context setup.

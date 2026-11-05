@@ -1,0 +1,14 @@
+;; C7 lines that fail show no result
+prev
+sum
+avg
+hello world
+1 +
+1/0
+5 km + 3 kg
+1 + 2) * 3
+1 km + 1 IDR
+1,5
+1,5000 + 1
+;; an unclosed paren is closed by fend, so results stay live while typing
+(1 + 2 => 3
