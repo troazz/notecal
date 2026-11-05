@@ -10,18 +10,21 @@ function build(doc: Text, lines: readonly LineResult[]): DecorationSet {
   const count = Math.min(doc.lines, lines.length);
   for (let i = 0; i < count; i++) {
     const result = lines[i];
-    if (!result?.display) continue;
-    // A line attribute drawn by CSS, not a widget: an inline widget at the
-    // line end is what the editor measures the end-of-line cursor against,
-    // which put the cursor next to the result instead of after the text.
+    // Line attributes drawn by CSS, not widgets or a gutter: an inline widget
+    // at the line end is what the editor measures the end-of-line cursor
+    // against, and a gutter doubled per-keystroke layout work on WebKitGTK.
+    let attributes: Record<string, string>;
+    if (result?.display) {
+      attributes = { "data-result": result.display, "data-copy": result.copy ?? result.display };
+    } else if (result?.error) {
+      // PRD errors rule: no error text in the result column; a marker in
+      // the left margin shows the reason on hover.
+      attributes = { "data-error": result.error };
+    } else {
+      continue;
+    }
     const line = doc.line(i + 1);
-    builder.add(
-      line.from,
-      line.from,
-      Decoration.line({
-        attributes: { "data-result": result.display, "data-copy": result.copy ?? result.display },
-      }),
-    );
+    builder.add(line.from, line.from, Decoration.line({ attributes }));
   }
   return builder.finish();
 }
@@ -99,6 +102,8 @@ const copiedField = StateField.define<DecorationSet>({
 });
 
 const COPIED_FLASH_MS = 900;
+/** Width of the line's left padding that holds the error marker. */
+const ERROR_MARGIN_PX = 16;
 let measureCanvas: HTMLCanvasElement | undefined;
 
 function textWidth(text: string, font: string): number {
@@ -138,15 +143,21 @@ function copyResult(view: EditorView, lineStart: number, text: string): void {
 }
 
 /** The result shown on the line holding the main cursor, if any. */
-function currentResult(view: EditorView): { lineStart: number; display: string; copy: string } | null {
+/** The result attributes of the line holding the main cursor. */
+function currentAttributes(view: EditorView): { lineStart: number; attributes: Record<string, string> } {
   const line = view.state.doc.lineAt(view.state.selection.main.head);
-  let found: { display: string; copy: string } | null = null;
+  let attributes: Record<string, string> = {};
   view.state.field(resultsField).between(line.from, line.from, (_from, _to, decoration) => {
-    const attributes = decoration.spec["attributes"] as Record<string, string> | undefined;
-    const display = attributes?.["data-result"];
-    if (display) found = { display, copy: attributes?.["data-copy"] ?? display };
+    attributes = (decoration.spec["attributes"] as Record<string, string> | undefined) ?? {};
   });
-  return found ? { lineStart: line.from, ...(found as { display: string; copy: string }) } : null;
+  return { lineStart: line.from, attributes };
+}
+
+/** The result shown on the line holding the main cursor, if any. */
+function currentResult(view: EditorView): { lineStart: number; display: string; copy: string } | null {
+  const { lineStart, attributes } = currentAttributes(view);
+  const display = attributes["data-result"];
+  return display ? { lineStart, display, copy: attributes["data-copy"] ?? display } : null;
 }
 
 /** A visually hidden live region for screen-reader announcements (PRD E9). */
@@ -197,8 +208,11 @@ const resultKeys = keymap.of([
     // PRD E9: read the current line's result aloud.
     key: "Mod-Shift-a",
     run: (view) => {
-      const result = currentResult(view);
-      view.plugin(announcer)?.say(result ? result.display : "No result on this line");
+      const { attributes } = currentAttributes(view);
+      const error = attributes["data-error"];
+      view.plugin(announcer)?.say(
+        attributes["data-result"] ?? (error ? `No result: ${error}` : "No result on this line"),
+      );
       return true;
     },
   },
@@ -216,12 +230,20 @@ const copyOnClick = EditorView.domEventHandlers({
   },
   mousemove(event, view) {
     view.contentDOM.classList.toggle("cm-over-result", resultUnderPointer(event, view) !== null);
+    // The error marker sits in the line's left padding; show the reason as
+    // a tooltip only while the pointer is over it.
+    const line = (event.target as Element | null)?.closest<HTMLElement>(".cm-line");
+    const error = line?.dataset["error"];
+    if (line && error) {
+      const overMarker = event.clientX < line.getBoundingClientRect().left + ERROR_MARGIN_PX;
+      if (overMarker) line.title = error;
+      else line.removeAttribute("title");
+    }
     return false;
   },
 });
 
 const resultsTheme = EditorView.baseTheme({
-  ".cm-line": { position: "relative" },
   // Absolutely positioned so a result never shifts the text it follows. The
   // background hides any text the result overlaps on a long line.
   ".cm-line[data-result]::after": {
@@ -235,6 +257,17 @@ const resultsTheme = EditorView.baseTheme({
     pointerEvents: "none",
   },
   ".cm-line.cm-result-copied::after": { content: '"Copied"' },
+  ".cm-line": { position: "relative", paddingLeft: `${ERROR_MARGIN_PX}px` },
+  ".cm-line[data-error]::before": {
+    content: '"●"',
+    position: "absolute",
+    left: "3px",
+    color: "var(--error-color)",
+    fontSize: "0.7em",
+    pointerEvents: "none",
+  },
+  // The line being typed is usually incomplete; marking it would flicker.
+  ".cm-line.cm-activeLine[data-error]::before": { content: "none" },
   ".cm-content.cm-over-result": { cursor: "pointer" },
   ".cm-announcer": {
     position: "absolute",
