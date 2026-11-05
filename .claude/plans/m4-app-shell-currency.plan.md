@@ -106,9 +106,10 @@ background = true             # close hides to tray; Quit from tray
 
 ## Tasks
 
-### Task 1: Settings model and file
+### Task 1: Settings model and file ✅
 - **Action**: `settings.rs` (defaults, parse with per-key fallback, save atomically, validation of ranges and enums), commands `get_settings` / `save_settings`, watch → `settings-changed`. Evaluator takes locale and precision from settings; scheduler stops sending locale.
 - **Validate**: Rust tests: missing file → defaults; partial file; invalid values fall back with a message; round trip. Manual: editing `settings.toml` by hand changes precision live.
+- **Done**: checked in the release build — writing `precision = 2` by hand changed `260.975901 miles` to `260.98 miles` without a restart. Problems found in the file are shown in the notice. `notes_dir` is read at startup; switching it live is Task 6.
 
 ### Task 2: Single instance and `--toggle` (A2)
 - **Action**: single-instance plugin, toggle logic, Esc hides, `docs/linux-setup.md` with the Hyprland Lua binding (`notecal --toggle` on Alt+Space) plus Sway and GNOME.

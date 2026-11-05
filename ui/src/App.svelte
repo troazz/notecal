@@ -4,6 +4,7 @@
   import Editor, { type EditorController } from "./Editor.svelte";
   import Switcher from "./notes/Switcher.svelte";
   import { notesApi } from "./notes/api";
+  import { settingsApi, type SettingsView } from "./settings/api";
   import { NoteSession } from "./notes/session";
   import { KeystrokeTimer } from "./editor/perf";
 
@@ -109,9 +110,23 @@
     }
   }
 
+  /** Applies settings that live in the UI, and reports file problems. */
+  function applySettings(view: SettingsView) {
+    if (view.problems.length) report(`settings.toml: ${view.problems.join(" ")}`);
+    // Locale and precision are applied by the backend; results need a refresh.
+    editor?.reevaluate();
+  }
+
   onMount(() => {
     const appWindow = getCurrentWindow();
+    settingsApi
+      .get()
+      .then((view) => {
+        if (view.problems.length) report(`settings.toml: ${view.problems.join(" ")}`);
+      })
+      .catch((error: unknown) => report(String(error)));
     const stops = [
+      settingsApi.onChanged(applySettings),
       notesApi.onDiskChange((event) => void session?.diskChanged(event)),
       appWindow.onFocusChanged(({ payload: focused }) => {
         if (!focused) void persist();
