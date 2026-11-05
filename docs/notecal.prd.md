@@ -297,7 +297,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 
 | # | Milestone | Outcome | Status | Plan |
 |---|---|---|---|---|
-| 1 | Engine core (~2.5 w) | `notecal-core` evaluates C1–C8, C10, C12, C13 with the language rules; ≥ 150 golden cases, fuzz test, per-line cache, and benches meeting the engine budgets | in-progress | `.claude/plans/m1-engine-core.plan.md` |
+| 1 | Engine core (~2.5 w) | `notecal-core` evaluates C1–C8, C10, C12, C13 with the language rules; ≥ 150 golden cases, fuzz test, per-line cache, and benches meeting the engine budgets | complete | `.claude/plans/m1-engine-core.plan.md` |
 | 2 | Shell spike + Gate 1 (~1.5 w) | Tauri + Svelte + CodeMirror window with live right-aligned results for one note on both machines; Gate 1 measurements recorded | pending | — |
 | 3 | Notes and editor (~2 w) | N1–N5, E1–E6 (E5, E7–E9 if time allows); notes are safe under Syncthing | pending | — |
 | 4 | App shell and currency (~1.5 w) | A1, A2, A3–A6, C9 with cached offline rates | pending | — |

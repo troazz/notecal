@@ -25,6 +25,8 @@ use preprocess::LineKind;
 /// How long one line may take before it is interrupted (PRD C13).
 pub const LINE_TIME_LIMIT: Duration = Duration::from_millis(50);
 
+const TOO_LONG: &str = "This calculation took too long";
+
 /// Number formatting convention for input and output.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Locale {
@@ -114,17 +116,32 @@ pub fn evaluate_note(text: &str, settings: &Settings, rates: Option<&Rates>) -> 
     Engine::default().evaluate(text, settings, rates)
 }
 
-/// Which earlier lines `prev` and totals refer to.
-#[derive(Debug, Clone, Default)]
+/// What `prev` and totals can refer to at a given line.
+#[derive(Debug, Clone, Copy)]
 struct References {
-    /// Nearest line above with a result.
-    last: Option<usize>,
-    /// Lines counted by `sum`/`total`/`avg` in the current block.
-    block: Vec<usize>,
+    /// Some earlier line has a result, held in the hidden `_prev` variable.
+    has_prev: bool,
+    /// Lines counted by `sum`/`total`/`avg` in the current block; their
+    /// running total is held in the hidden `_sum` variable.
+    block_len: usize,
+    /// False once a counted line could not be added to the running total.
+    sum_valid: bool,
+}
+
+impl Default for References {
+    fn default() -> Self {
+        Self {
+            has_prev: false,
+            block_len: 0,
+            sum_valid: true,
+        }
+    }
 }
 
 struct CachedLine {
     text: String,
+    /// Whether this line's result was added to the block's running total.
+    feeds_total: bool,
     result: LineResult,
     context_after: Context,
     references_after: References,
@@ -161,23 +178,24 @@ impl Engine {
         let base = self.base.as_ref().expect("set above");
 
         let lines: Vec<&str> = text.split('\n').collect();
+        let feeds_total = preprocess::feeds_total(&lines);
+        // A line is reusable when its text is the same and so is whether a
+        // total below needs it (typing `total` re-evaluates the block).
         let unchanged = self
             .lines
             .iter()
-            .zip(&lines)
-            .take_while(|(cached, line)| cached.text == **line)
+            .zip(lines.iter().zip(&feeds_total))
+            .take_while(|(cached, (line, feeds))| {
+                cached.text == **line && cached.feeds_total == **feeds
+            })
             .count();
         self.lines.truncate(unchanged);
 
         let (mut context, mut references) = match self.lines.last() {
-            Some(cached) => (
-                cached.context_after.clone(),
-                cached.references_after.clone(),
-            ),
+            Some(cached) => (cached.context_after.clone(), cached.references_after),
             None => (base.clone(), References::default()),
         };
-        for (index, line) in lines.iter().enumerate().skip(unchanged) {
-            let before = (context.clone(), references.clone());
+        for (line, &feeds) in lines.iter().zip(&feeds_total).skip(unchanged) {
             let builtin_names = &mut self.builtin_names;
             let outcome = catch_unwind(AssertUnwindSafe(|| {
                 let mut line_eval = LineEval {
@@ -186,17 +204,23 @@ impl Engine {
                     settings,
                     rates,
                 };
-                line_eval.run(index, line, &mut context, &mut references)
+                line_eval.run(line, feeds, &mut context, &mut references)
             }));
             let result = outcome.unwrap_or_else(|_| {
-                (context, references) = before;
+                // A panic may leave fend's context half-updated: restore the
+                // state after the previous line.
+                (context, references) = match self.lines.last() {
+                    Some(cached) => (cached.context_after.clone(), cached.references_after),
+                    None => (base.clone(), References::default()),
+                };
                 LineResult::error("Internal error while evaluating this line")
             });
             self.lines.push(CachedLine {
                 text: (*line).to_string(),
+                feeds_total: feeds,
                 result,
                 context_after: context.clone(),
-                references_after: references.clone(),
+                references_after: references,
             });
         }
         self.lines.iter().map(|c| c.result.clone()).collect()
@@ -226,7 +250,7 @@ fn run_fend(input: &str, context: &mut Context) -> Result<fend_core::FendResult,
     let deadline = Deadline(Instant::now() + LINE_TIME_LIMIT);
     evaluate_with_interrupt(input, context, &deadline).map_err(|e| {
         if e == "interrupted" {
-            "This calculation took too long".to_string()
+            TOO_LONG.to_string()
         } else {
             e
         }
@@ -244,42 +268,37 @@ struct LineEval<'a> {
 impl LineEval<'_> {
     fn run(
         &mut self,
-        index: usize,
         line: &str,
+        feeds_total: bool,
         context: &mut Context,
         references: &mut References,
     ) -> LineResult {
         let line = line.trim();
         match preprocess::classify(line) {
             LineKind::Blank | LineKind::Header => {
-                references.block.clear();
+                references.block_len = 0;
+                references.sum_valid = true;
                 return LineResult::default();
             }
             LineKind::Comment => return LineResult::default(),
             LineKind::Expr => {}
         }
-        match self.evaluate_expr(index, line, context, references) {
-            Ok(Some((result, aggregates))) => {
-                references.last = Some(index);
-                if !aggregates {
-                    references.block.push(index);
-                }
-                result
-            }
+        match self.evaluate_expr(line, feeds_total, context, references) {
+            Ok(Some(result)) => result,
             Ok(None) => LineResult::default(),
             Err(message) => LineResult::error(message),
         }
     }
 
-    /// Returns the formatted result and whether the line used a total, or
-    /// `None` when fend produced no output.
+    /// Returns the formatted result, or `None` when fend produced no output.
+    /// Updates `references` when the line has a result.
     fn evaluate_expr(
         &mut self,
-        index: usize,
         line: &str,
+        feeds_total: bool,
         context: &mut Context,
-        references: &References,
-    ) -> Result<Option<(LineResult, bool)>, String> {
+        references: &mut References,
+    ) -> Result<Option<LineResult>, String> {
         let assignment = preprocess::split_assignment(line);
         let expr = assignment.map_or(line, |(_, rhs)| rhs);
         if let Some((name, _)) = assignment {
@@ -287,21 +306,52 @@ impl LineEval<'_> {
         }
         preprocess::check_group_separators(expr, self.settings.locale.group_separator())?;
         preprocess::check_parens(expr)?;
-        let rewritten = preprocess::rewrite_references(expr, references.last, &references.block)?;
+        let rewritten = preprocess::rewrite_references(
+            expr,
+            references.has_prev,
+            references.block_len,
+            references.sum_valid,
+        )?;
         let fend_expr =
             preprocess::rewrite_percent_change(&preprocess::rewrite_as_percent_of(&rewritten.expr));
 
-        let hidden = preprocess::result_var(index);
-        let input = match assignment {
-            Some((name, _)) => format!("{name} = ({fend_expr})"),
-            None => format!("{hidden} = ({fend_expr})"),
+        // `_prev = name = (expr)` stores the result for `prev` and in the
+        // user's variable. Counted lines with a total below them also add it to
+        // the block's running total in the same evaluation.
+        let mut store = format!("{} = ", preprocess::PREV_VAR);
+        if let Some((name, _)) = assignment {
+            store.push_str(name);
+            store.push_str(" = ");
+        }
+        store.push('(');
+        store.push_str(&fend_expr);
+        store.push(')');
+        let sum = preprocess::SUM_VAR;
+        let prev = preprocess::PREV_VAR;
+        let counted = !rewritten.aggregates;
+        let output = if !counted || !feeds_total || !references.sum_valid {
+            run_fend(&store, context)?
+        } else if references.block_len == 0 {
+            run_fend(&format!("{sum} = ({store}); {prev}"), context)?
+        } else {
+            match run_fend(&format!("{sum} = {sum} + ({store}); {prev}"), context) {
+                Ok(output) => output,
+                Err(e) if e == TOO_LONG => return Err(e),
+                Err(_) => {
+                    // Either the line itself failed, or its units cannot be
+                    // added to the total. Evaluate it alone to tell which.
+                    let output = run_fend(&store, context)?;
+                    references.sum_valid = false;
+                    output
+                }
+            }
         };
-        let output = run_fend(&input, context)?;
         if output.output_is_empty() {
             return Ok(None);
         }
-        if let Some((name, _)) = assignment {
-            run_fend(&format!("{hidden} = {name}"), context)?;
+        references.has_prev = true;
+        if counted {
+            references.block_len += 1;
         }
 
         let formatted = format::format_result(
@@ -315,7 +365,7 @@ impl LineEval<'_> {
             copy: Some(formatted.copy),
             error: None,
         };
-        Ok(Some((result, rewritten.aggregates)))
+        Ok(Some(result))
     }
 
     fn check_name(&mut self, name: &str) -> Result<(), String> {
@@ -378,6 +428,12 @@ mod tests {
             "a = 5",
             "",
             "x = 1\ny = x + 1\ny * 10",
+            // typing a total below must re-evaluate the lines it adds up
+            "1\n2\n3",
+            "1\n2\n3\ntotal",
+            "1\n2\n3\ntotal\n4",
+            "1\n2\n3\ntotal\n4\navg",
+            "1\n2\n\n3\ntotal",
         ];
         let mut engine = Engine::default();
         for text in edits {

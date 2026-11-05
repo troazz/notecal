@@ -106,19 +106,25 @@ pub(crate) struct References {
     pub aggregates: bool,
 }
 
-/// Name of the hidden fend variable that holds line `index`'s result.
-pub(crate) fn result_var(index: usize) -> String {
-    format!("_r{index}")
-}
+/// Hidden fend variable holding the most recent result, for `prev`.
+pub(crate) const PREV_VAR: &str = "_prev";
+
+/// Hidden fend variable holding the running total of the current block.
+/// A running total, rather than one variable per line, keeps fend's
+/// context (cloned once per line for the cache) the same size however long
+/// the block gets.
+pub(crate) const SUM_VAR: &str = "_sum";
 
 /// Replaces `prev`, `sum`, `total` and `avg` (whole words only).
 ///
-/// `prev_line` is the nearest earlier line with a result; `block` lists the
-/// lines counted by totals in the current block.
+/// `has_prev` says whether an earlier line has a result; `block_len` is the
+/// number of lines counted by totals in the current block, and `sum_valid`
+/// is false once those lines turned out to have incompatible units.
 pub(crate) fn rewrite_references(
     expr: &str,
-    prev_line: Option<usize>,
-    block: &[usize],
+    has_prev: bool,
+    block_len: usize,
+    sum_valid: bool,
 ) -> Result<References, String> {
     let mut out = String::with_capacity(expr.len());
     let mut aggregates = false;
@@ -126,20 +132,23 @@ pub(crate) fn rewrite_references(
     let mut flush = |word: &mut String, out: &mut String| -> Result<(), String> {
         match word.as_str() {
             "prev" => {
-                let line = prev_line.ok_or("There is no earlier result for 'prev'")?;
-                out.push_str(&result_var(line));
+                if !has_prev {
+                    return Err("There is no earlier result for 'prev'".into());
+                }
+                out.push_str(PREV_VAR);
             }
             "sum" | "total" | "avg" => {
-                if block.is_empty() {
+                if block_len == 0 {
                     return Err(format!("There is nothing above to '{word}'"));
                 }
+                if !sum_valid {
+                    return Err("The lines above have units that cannot be added".into());
+                }
                 aggregates = true;
-                let terms: Vec<String> = block.iter().map(|&i| result_var(i)).collect();
-                let sum = terms.join(" + ");
                 if word == "avg" {
-                    out.push_str(&format!("(({sum}) / {})", block.len()));
+                    out.push_str(&format!("({SUM_VAR} / {block_len})"));
                 } else {
-                    out.push_str(&format!("({sum})"));
+                    out.push_str(SUM_VAR);
                 }
             }
             _ => out.push_str(word),
@@ -160,6 +169,31 @@ pub(crate) fn rewrite_references(
         expr: out,
         aggregates,
     })
+}
+
+/// True when the line uses `sum`, `total` or `avg` (whole words only).
+fn uses_total(line: &str) -> bool {
+    line.split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .any(|w| matches!(w, "sum" | "total" | "avg"))
+}
+
+/// For each line, whether a later line in the same block uses a total, so
+/// this line's result must be added to the block's running total. Blocks
+/// without a total skip that work entirely.
+pub(crate) fn feeds_total(lines: &[&str]) -> Vec<bool> {
+    let mut flags = vec![false; lines.len()];
+    let mut total_below = false;
+    for (i, line) in lines.iter().enumerate().rev() {
+        match classify(line) {
+            LineKind::Blank | LineKind::Header => total_below = false,
+            LineKind::Comment => {}
+            LineKind::Expr => {
+                flags[i] = total_below;
+                total_below |= uses_total(line);
+            }
+        }
+    }
+    flags
 }
 
 /// Rewrites `A as % of B` to `((A) / (B)) to %`.
@@ -394,16 +428,27 @@ mod tests {
     }
 
     #[test]
+    fn feeds_total_marks_lines_above_a_total_in_the_block() {
+        let lines = ["1", "2", "// c", "sum", "3", "", "4", "# h", "5", "avg"];
+        let expected = [
+            true, true, false, false, false, false, false, false, true, false,
+        ];
+        assert_eq!(feeds_total(&lines), expected);
+    }
+
+    #[test]
     fn references() {
-        let r = rewrite_references("20% of prev", Some(3), &[]).unwrap();
-        assert_eq!(r.expr, "20% of _r3");
+        let r = rewrite_references("20% of prev", true, 0, true).unwrap();
+        assert_eq!(r.expr, "20% of _prev");
         assert!(!r.aggregates);
-        let r = rewrite_references("avg", None, &[1, 2]).unwrap();
-        assert_eq!(r.expr, "((_r1 + _r2) / 2)");
+        let r = rewrite_references("avg", false, 2, true).unwrap();
+        assert_eq!(r.expr, "(_sum / 2)");
         assert!(r.aggregates);
-        assert!(rewrite_references("sum", None, &[]).is_err());
+        assert!(rewrite_references("sum", false, 0, true).is_err());
+        assert!(rewrite_references("sum", false, 2, false).is_err());
+        assert!(rewrite_references("prev", false, 3, true).is_err());
         assert_eq!(
-            rewrite_references("previous", None, &[]).unwrap().expr,
+            rewrite_references("previous", false, 0, true).unwrap().expr,
             "previous"
         );
     }
