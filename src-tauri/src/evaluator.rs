@@ -4,7 +4,8 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, RwLock};
 
-use notecal_core::{Engine, LineResult, Settings};
+use notecal_core::currency::mentions_currency;
+use notecal_core::{Engine, LineResult, Rates, Settings};
 use serde::{Deserialize, Serialize};
 
 /// One `evaluate` call from the editor.
@@ -20,6 +21,8 @@ pub struct EvalRequest {
 pub struct EvalResponse {
     pub version: u64,
     pub lines: Vec<LineDto>,
+    /// Whether the note names a currency (the status line then shows the rates date).
+    pub uses_currency: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -46,6 +49,8 @@ pub struct Evaluator {
     latest: AtomicU64,
     /// Locale and precision from the user's settings.
     settings: RwLock<Settings>,
+    /// Cached exchange rates, once any were fetched.
+    rates: RwLock<Option<Rates>>,
 }
 
 impl Evaluator {
@@ -63,6 +68,13 @@ impl Evaluator {
             .unwrap_or_else(std::sync::PoisonError::into_inner) = settings;
     }
 
+    pub fn set_rates(&self, rates: Option<Rates>) {
+        *self
+            .rates
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = rates;
+    }
+
     /// Evaluates the request, or returns `None` if a newer one was announced
     /// before or while it waited for the engine.
     pub fn evaluate(&self, request: &EvalRequest) -> Option<EvalResponse> {
@@ -78,10 +90,16 @@ impl Evaluator {
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone();
-        let lines = engine.evaluate(&request.text, &settings, None);
+        let rates = self
+            .rates
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        let lines = engine.evaluate(&request.text, &settings, rates.as_ref());
         Some(EvalResponse {
             version: request.version,
             lines: lines.into_iter().map(LineDto::from).collect(),
+            uses_currency: mentions_currency(&request.text),
         })
     }
 
@@ -156,6 +174,24 @@ mod tests {
         evaluator.announce(1);
         let response = evaluator.evaluate(&request(1, "1/3")).unwrap();
         assert_eq!(response.lines[0].display.as_deref(), Some("0,33"));
+    }
+
+    #[test]
+    fn converts_currency_once_rates_are_set() {
+        let evaluator = Evaluator::default();
+        evaluator.announce(1);
+        let before = evaluator.evaluate(&request(1, "2 USD in IDR")).unwrap();
+        assert!(before.uses_currency);
+        assert_eq!(
+            before.lines[0].error.as_deref(),
+            Some(notecal_core::NO_RATES)
+        );
+        evaluator.set_rates(Some(Rates::from_per_usd(
+            [("USD".to_string(), 1.0), ("IDR".to_string(), 16000.0)].into(),
+        )));
+        evaluator.announce(2);
+        let after = evaluator.evaluate(&request(2, "2 USD in IDR")).unwrap();
+        assert_eq!(after.lines[0].display.as_deref(), Some("32,000 IDR"));
     }
 
     #[test]

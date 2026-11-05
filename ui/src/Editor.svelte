@@ -37,10 +37,12 @@
     timer,
     onready,
     onedit,
+    onresults,
   }: {
     timer: KeystrokeTimer;
     onready: (controller: EditorController) => void;
     onedit: () => void;
+    onresults: (response: EvalResponse) => void;
   } = $props();
 
   let host: HTMLDivElement;
@@ -52,6 +54,7 @@
       invoke: (request) => invoke<EvalResponse | null>("evaluate", { request }),
       apply: (response) => {
         view?.dispatch({ effects: setResults.of(response.lines) });
+        onresults(response);
         // rAF runs before the paint; the timeout after it runs once the
         // frame with the new results is on screen.
         requestAnimationFrame(() =>

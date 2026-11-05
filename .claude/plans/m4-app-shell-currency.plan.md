@@ -126,9 +126,10 @@ background = true             # close hides to tray; Quit from tray
 - **Validate**: Manual: tray menu works where the bar shows tray icons; with no tray host, closing still behaves (if `background` is on and no tray is visible, `--toggle` still shows the window). Idle CPU unchanged.
 - **Done**: the tray item registers with the Omarchy shell's StatusNotifierWatcher (it sits in the bar's collapsed tray, behind `<`). Left click toggles; menu has Show/Hide and Quit. Quit asks the UI to save (`quit-requested`), the UI calls `quit`; the process exits after 3 s regardless. Closing the window hides it when `background = true` (checked: process stays, `--toggle` shows it again). Tray clicks themselves need a human check (no pointer automation here).
 
-### Task 5: Currency rates (C9)
+### Task 5: Currency rates (C9) ✅
 - **Action**: `rates.rs` with an injectable fetcher; cache load/save; refresh policy; evaluator wiring; `rates-updated` event; engine "No exchange rates yet"; status line; attribution.
 - **Validate**: Rust tests with a fake fetcher: no cache + currency → one fetch; fresh cache → no fetch; failure keeps the old cache and backs off; no currency → no fetch; corrupt cache ignored. Golden cases for the no-rates message. Manual: `100 USD in IDR` works online, then offline after a restart.
+- **Done**: the no-rates rule is tested in `notecal-core` unit tests rather than golden files (the golden harness always supplies fixed rates). Currency detection uses the provider's 166 codes (`notecal_core::currency`). The refresh policy is a pure `start_refresh`/`finish` pair, so tests drive time and results directly. Checked live: first currency line fetched once and cached; `100 USD in IDR` → `1,813,216.71 IDR`; status line "Rates: 5 Nov 2026"; after a restart the cache was used with no refetch. Attribution: tooltip on the status line now, full credit line in Settings (Task 6).
 
 ### Task 6: Settings screen and fonts (A6, E7)
 - **Action**: `Settings.svelte` (Ctrl+,), font variables, notes-folder switch, Wayland hint, credits.

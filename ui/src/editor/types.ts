@@ -13,4 +13,6 @@ export interface LineResult {
 export interface EvalResponse {
   version: number;
   lines: LineResult[];
+  /** The note names a currency, so the status line shows the rates date. */
+  uses_currency: boolean;
 }
