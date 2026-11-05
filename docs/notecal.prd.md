@@ -299,7 +299,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 |---|---|---|---|---|
 | 1 | Engine core (~2.5 w) | `notecal-core` evaluates C1–C8, C10, C12, C13 with the language rules; ≥ 150 golden cases, fuzz test, per-line cache, and benches meeting the engine budgets | complete | `.claude/plans/m1-engine-core.plan.md` |
 | 2 | Shell spike + Gate 1 (~1.5 w) | Tauri + Svelte + CodeMirror window with live right-aligned results for one note; Gate 1 measured on Arch (macOS deferred to M5) | complete | `.claude/plans/m2-shell-spike.plan.md` |
-| 3 | Notes and editor (~2 w) | N1–N5, E1–E6 (E5, E7–E9 if time allows); notes are safe under Syncthing | in-progress | `.claude/plans/m3-notes-editor.plan.md` |
+| 3 | Notes and editor (~2 w) | N1–N5, E1–E6 (E5, E7–E9 if time allows); notes are safe under Syncthing | complete | `.claude/plans/m3-notes-editor.plan.md` |
 | 4 | App shell and currency (~1.5 w) | A1, A2, A3–A6, C9 with cached offline rates | pending | — |
 | 5 | Release + Gate 2 (~1.5 w) | CI builds `.dmg`, AppImage and AUR inputs with size checks; ≥ 300 golden cases; v1.0 tagged | pending | — |
 
