@@ -116,9 +116,10 @@ background = true             # close hides to tray; Quit from tray
 - **Validate**: Manual on Hyprland: `notecal --toggle` from a terminal shows the window focused and typing goes to it; again hides it; show time measured from the command to the first frame (target ≤ 100 ms).
 - **Done**: on Hyprland, toggle hides the focused window and shows it focused (no focus-stealing rule needed); one instance stays running. Command → focused window: 87–111 ms, including starting the second process and `hyprctl` polling. Esc hides (after saving); Esc in the search panel only closes the panel.
 
-### Task 3: Window state, always-on-top, global shortcut (A5, A4, A1)
+### Task 3: Window state, always-on-top, global shortcut (A5, A4, A1) ✅ (X11/macOS; Wayland via compositor rules)
 - **Action**: window-state plugin; always-on-top setting + Mod+Shift+T; global shortcut registration (skipped on Wayland, with the reason shown in Settings).
 - **Validate**: Manual: size/position restored after restart; always-on-top toggles; on Wayland the shortcut is not registered and Settings explains why.
+- **Done / finding**: on Hyprland the app cannot set its position, keep itself on top, or register global keys, and the window-state plugin saved a stale size plus `maximized: true`. So on Wayland the window-state and global-shortcut plugins are not loaded; `docs/linux-setup.md` gives the Hyprland window rule (float, size, center, pin) in Omarchy's Lua form and classic form. On X11/macOS: window-state (visibility excluded) and the global shortcut from settings; `always_on_top` applied from settings and toggled with Mod+Shift+T (saved). `shortcut_status` tells the Settings screen what applies. X11/macOS paths compile but are untested here (Wayland-only machine) — check at Gate 2.
 
 ### Task 4: Tray and background mode (A3)
 - **Action**: tray icon and menu; close → hide when `background` is on.

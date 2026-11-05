@@ -187,6 +187,7 @@ impl SettingsState {
         drop(current);
         app.state::<Arc<Evaluator>>()
             .set_settings(view.settings.engine());
+        crate::shell::apply_window_settings(app, &view.settings);
         emit(app, settings::SETTINGS_CHANGED, view);
     }
 

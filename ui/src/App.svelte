@@ -145,6 +145,10 @@
       event.preventDefault();
       stats = timer.stats();
       showStats = !showStats;
+    } else if (mod && event.shiftKey && key === "t") {
+      // A4: always on top, saved as a setting.
+      event.preventDefault();
+      void toggleAlwaysOnTop();
     } else if (event.key === "Escape" && !showSwitcher && !event.defaultPrevented && !inEditorPanel(event)) {
       // Key scenario 1: Esc hides the window; edits are saved first.
       event.preventDefault();
@@ -154,6 +158,16 @@
       void session?.flush();
       showSwitcher = !showSwitcher;
       if (!showSwitcher) editor?.focus();
+    }
+  }
+
+  async function toggleAlwaysOnTop() {
+    try {
+      const { settings } = await settingsApi.get();
+      await settingsApi.save({ ...settings, always_on_top: !settings.always_on_top });
+      report(settings.always_on_top ? "Always on top: off" : "Always on top: on");
+    } catch (error) {
+      report(String(error));
     }
   }
 
