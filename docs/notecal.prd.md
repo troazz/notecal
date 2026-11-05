@@ -178,9 +178,9 @@ These rules are normative. Each one gets golden test cases.
 | Metric | Budget | How measured |
 | --- | --- | --- |
 | Package size | `.dmg` ≤ 15 MB; AUR package ≤ 15 MB. AppImage is tracked, not budgeted (it bundles WebKitGTK) | CI artifact size |
-| Cold start to editable | ≤ 400 ms macOS; Linux target set at Gate 1 from measurement | Timestamp from process start to first editor focus |
+| Cold start to editable | ≤ 400 ms on both (Linux measured 321 ms at Gate 1) | Timestamp from process start to first editor focus |
 | Hotkey show (app already running) | ≤ 100 ms | Screen capture |
-| Idle RAM | ≤ 80 MB macOS; Linux target set at Gate 1 from measurement | Sum of PSS across the app and all webview processes (`smem` / Activity Monitor) |
+| Idle RAM | ≤ 80 MB macOS; ≤ 200 MiB Linux (measured 163 MiB at Gate 1) | Sum of PSS across the app and all webview processes (`smem` / Activity Monitor) |
 | Keystroke to updated results | ≤ 50 ms p95 for a 200-line note, end to end | Frame timing in the webview |
 | Full evaluation of a 200-line note, nothing cached | ≤ 15 ms | `criterion` benchmark |
 | Re-evaluation after editing the last line of a 200-line note | ≤ 2 ms | `criterion` benchmark |
@@ -298,12 +298,12 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 | # | Milestone | Outcome | Status | Plan |
 |---|---|---|---|---|
 | 1 | Engine core (~2.5 w) | `notecal-core` evaluates C1–C8, C10, C12, C13 with the language rules; ≥ 150 golden cases, fuzz test, per-line cache, and benches meeting the engine budgets | complete | `.claude/plans/m1-engine-core.plan.md` |
-| 2 | Shell spike + Gate 1 (~1.5 w) | Tauri + Svelte + CodeMirror window with live right-aligned results for one note on both machines; Gate 1 measurements recorded | in-progress | `.claude/plans/m2-shell-spike.plan.md` |
+| 2 | Shell spike + Gate 1 (~1.5 w) | Tauri + Svelte + CodeMirror window with live right-aligned results for one note; Gate 1 measured on Arch (macOS deferred to M5) | complete | `.claude/plans/m2-shell-spike.plan.md` |
 | 3 | Notes and editor (~2 w) | N1–N5, E1–E6 (E5, E7–E9 if time allows); notes are safe under Syncthing | pending | — |
 | 4 | App shell and currency (~1.5 w) | A1, A2, A3–A6, C9 with cached offline rates | pending | — |
 | 5 | Release + Gate 2 (~1.5 w) | CI builds `.dmg`, AppImage and AUR inputs with size checks; ≥ 300 golden cases; v1.0 tagged | pending | — |
 
-**Gate 1 (end of M2): WebKitGTK on Arch.** This is the biggest risk, so it is checked before investing in features. Measure on the author's Arch/Hyprland machine and macOS machine: keystroke-to-results p95 on a 200-line note, cold start, and idle RAM.
+**Gate 1 (end of M2): WebKitGTK on Arch.** This is the biggest risk, so it is checked before investing in features. Measure on the author's Arch/Hyprland machine: keystroke-to-results p95 on a 200-line note, cold start, and idle RAM. Result: **passed on Arch** (`docs/gate1.md`). The macOS measurement was deferred by the author to focus on Linux; WKWebView is the lower-risk platform and is measured at Gate 2.
 
 - Pass: the end-to-end typing budget is met. The Linux cold-start and RAM targets are then fixed from the measurements.
 - Fail: try the WebKitGTK workaround flags (for example `WEBKIT_DISABLE_DMABUF_RENDERER=1`). If they don't help, M3 onward moves to an iced frontend on top of the same `notecal-core` crate.
@@ -338,7 +338,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 ### Open questions
 
 - [ ] License: MIT or GPL-3.0?
-- [ ] Linux cold-start and idle-RAM targets (set at Gate 1).
+- [x] Linux cold-start and idle-RAM targets: ≤ 400 ms and ≤ 200 MiB (set at Gate 1).
 
 ### Success metrics
 
