@@ -22,10 +22,12 @@ WebKitGTK 2.54.1.
 | Cold start (median of 5) | 435 ms | 321 ms | Linux target set here |
 | Idle RAM (PSS, all processes) | 202 MiB | 163 MiB | Linux target set here |
 | Idle CPU | ~11% (app 8.5%, web process 3%) | ~1% | ~0% |
-| Keystroke → results p95 | _pending_ | _pending (you)_ | ≤ 50 ms |
-| Rendering glitches | none seen | none seen | — |
+| Keystroke → results p95 | not measured | 43 ms (p50 27 ms, max 48 ms; 110 keystrokes, rerun with ≥ 200 pending) | ≤ 50 ms |
+| Rendering glitches | none seen | results drawn off-screen when one line is wider than the window (fixed, see below) | — |
 
 **Change made:** the app now sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` at startup on Linux unless the variable is already set (`src-tauri/src/main.rs`). With it, idle CPU meets the budget and cold start and RAM improve. Setting the variable to `0` restores the DMABUF renderer.
+
+**Bug found in the typing run:** with soft wrap off, every line is as wide as the longest one, so results aligned to the line's right edge were pushed out of view once any line was wider than the window. Results now stay pinned to the visible right edge (`ui/src/editor/results.ts`, `pinToViewport`) and cover any text they overlap.
 
 ## macOS
 
