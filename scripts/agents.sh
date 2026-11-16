@@ -60,9 +60,18 @@ start_agent() {
   settle "$agent"
 }
 
+# Submits a prompt and waits for the turn. Stops the run if the agent never picks
+# it up (for example a sign-in screen, which Herdr sees as idle).
 prompt() {
-  local agent=$1 text=$2
-  herdr agent prompt "$agent" "$text" --wait --timeout "$long" >/dev/null || true
+  local agent=$1 text=$2 err
+  if ! err=$(herdr agent prompt "$agent" "$text" --wait --timeout "$long" 2>&1 >/dev/null); then
+    if jq -e '.error.code == "agent_prompt_stalled"' <<<"$err" >/dev/null 2>&1; then
+      log "$agent did not start working on the prompt. Its screen:"
+      herdr agent read "$agent" --source recent-unwrapped --lines 30 | grep -v '^[[:space:]]*$' | tail -12
+      notify "$agent did not take the prompt; see its pane"
+      exit 1
+    fi
+  fi
   settle "$agent"
 }
 
