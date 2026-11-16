@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(scripts/check.sh)",
+      "Bash(cargo fmt:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo bench:*)",
+      "Bash(bun install --frozen-lockfile)",
+      "Bash(bun install --cwd ui --frozen-lockfile)",
+      "Bash(bun run check)",
+      "Bash(bun run test:*)",
+      "Bash(bun run build)",
+      "Bash(bun run --cwd ui:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
+    ],
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git tag:*)",
+      "Bash(git reset:*)",
+      "Bash(git rebase:*)",
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)",
+      "Bash(rm:*)"
+    ]
+  }
+}
