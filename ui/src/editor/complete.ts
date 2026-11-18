@@ -11,9 +11,14 @@ import { Prec, type Extension } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { firstAssignments } from "./language";
 
-/** Common units and words of the calculation language (PRD C3–C8). */
+/** Common units and words of the calculation language (PRD C3–C8, C11). */
 const WORDS: Completion[] = [
   ...["in", "to", "of", "as", "prev", "sum", "total", "avg", "mod"].map((label) => ({
+    label,
+    type: "keyword",
+  })),
+  // C11: dates and times.
+  ...["today", "now", "tomorrow", "yesterday", "noon", "midnight"].map((label) => ({
     label,
     type: "keyword",
   })),

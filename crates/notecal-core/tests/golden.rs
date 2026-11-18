@@ -5,16 +5,24 @@
 //! - `input => expected` asserts the displayed result.
 //! - `input => expected || copy` also asserts the bare-number copy.
 //! - A line without `=>` asserts that the line shows no result.
-//! - `---` starts a new note. `@locale id` and `@precision N` apply to the
-//!   next note only. Lines starting with `;;` are test comments, not note text.
+//! - `---` starts a new note. `@locale id`, `@precision N`, `@now
+//!   YYYY-MM-DDTHH:MM` and `@zone Area/City` apply to the next note only.
+//!   Lines starting with `;;` are test comments, not note text.
 //!
-//! Every note gets a fixed rate table: USD 1, IDR 16000, EUR 0.9 per USD.
+//! Every note gets a fixed rate table (USD 1, IDR 16000, EUR 0.9 per USD) and
+//! a fixed clock: Wed 18 Nov 2026 10:00 in Asia/Jakarta unless overridden.
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-use notecal_core::{Locale, Rates, Settings, evaluate_note};
+use jiff::ZonedDateTime;
+use jiff::civil::DateTime;
+use jiff::tz::TimeZone;
+use notecal_core::{Locale, Rates, Settings, evaluate_note_at};
+
+const DEFAULT_NOW: &str = "2026-11-18T10:00";
+const DEFAULT_ZONE: &str = "Asia/Jakarta";
 
 struct Expect {
     file: String,
@@ -26,12 +34,22 @@ struct Expect {
 
 struct Note {
     settings: Settings,
+    now: ZonedDateTime,
     lines: Vec<Expect>,
+}
+
+fn clock(now: &str, zone: &str) -> ZonedDateTime {
+    let datetime: DateTime = now.parse().expect("@now is YYYY-MM-DDTHH:MM");
+    datetime
+        .to_zoned_datetime(TimeZone::get(zone).expect("@zone is an IANA name"))
+        .expect("valid local time")
 }
 
 fn parse(file: &str, content: &str) -> Vec<Note> {
     let mut notes = Vec::new();
     let mut settings = Settings::default();
+    let mut now = DEFAULT_NOW.to_string();
+    let mut zone = DEFAULT_ZONE.to_string();
     let mut lines = Vec::new();
     for (i, raw) in content.lines().enumerate() {
         if raw.starts_with(";;") {
@@ -40,8 +58,11 @@ fn parse(file: &str, content: &str) -> Vec<Note> {
         if raw == "---" {
             notes.push(Note {
                 settings: std::mem::take(&mut settings),
+                now: clock(&now, &zone),
                 lines: std::mem::take(&mut lines),
             });
+            now = DEFAULT_NOW.to_string();
+            zone = DEFAULT_ZONE.to_string();
             continue;
         }
         if let Some(directive) = raw.strip_prefix('@') {
@@ -49,6 +70,8 @@ fn parse(file: &str, content: &str) -> Vec<Note> {
                 Some(("locale", "id")) => settings.locale = Locale::Id,
                 Some(("locale", "en")) => settings.locale = Locale::En,
                 Some(("precision", n)) => settings.precision = n.parse().expect("precision"),
+                Some(("now", value)) => now = value.to_string(),
+                Some(("zone", value)) => zone = value.to_string(),
                 _ => panic!("{file}:{}: unknown directive {raw}", i + 1),
             }
             continue;
@@ -75,7 +98,11 @@ fn parse(file: &str, content: &str) -> Vec<Note> {
             copy,
         });
     }
-    notes.push(Note { settings, lines });
+    notes.push(Note {
+        settings,
+        now: clock(&now, &zone),
+        lines,
+    });
     notes
 }
 
@@ -102,7 +129,8 @@ fn golden() {
         let name = path.file_name().unwrap().to_string_lossy().to_string();
         for note in parse(&name, &fs::read_to_string(path).unwrap()) {
             let text: Vec<&str> = note.lines.iter().map(|l| l.input.as_str()).collect();
-            let results = evaluate_note(&text.join("\n"), &note.settings, Some(&rates));
+            let results =
+                evaluate_note_at(&text.join("\n"), &note.settings, Some(&rates), &note.now);
             for (expect, got) in note.lines.iter().zip(&results) {
                 if expect.input.trim().is_empty() {
                     continue;
@@ -123,8 +151,8 @@ fn golden() {
     }
     println!("golden cases: {cases}");
     assert!(
-        cases >= 300,
-        "v1.0 (PRD M5) requires at least 300 golden cases, found {cases}"
+        cases >= 400,
+        "the suite has at least 400 golden cases (PRD M5 and M6), found {cases}"
     );
     assert!(
         failures.is_empty(),

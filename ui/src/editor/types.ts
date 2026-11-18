@@ -15,4 +15,6 @@ export interface EvalResponse {
   lines: LineResult[];
   /** The note names a currency, so the status line shows the rates date. */
   uses_currency: boolean;
+  /** A result depends on the clock (`now`, `today`): re-evaluate each minute. */
+  uses_time: boolean;
 }

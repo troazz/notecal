@@ -10,7 +10,7 @@ Close the feature gaps found in the comparison with similar calculator apps (202
 - In: dates and time zones (C11), CSS units, custom definitions, a command-line tool (A7), UI languages, and a Windows build.
 - Out: crypto prices and Apple notarization.
 
-Each milestone is a self-contained release (1.1, 1.2, …). v1.0.0 is tagged, and its draft release is held unpublished until the author decides (see Open decisions).
+1.0.0 is released once M6–M10 are all done (see Decisions).
 
 ## Roadmap
 
@@ -85,33 +85,39 @@ Dates and times are their own values. They don't mix with `sum`/`total` (a date 
 
 ### Tasks
 
-#### Task 1: datetime module and grammar
+#### Task 1: datetime module and grammar ✅
 - **Action**: add `jiff` to notecal-core. Write `datetime.rs` with the parser, evaluator and formatter, and its unit tests: one test per grammar form, month-end, leap day, DST gap and overlap.
 - **Mirror**: the hand-written tokenizer in `preprocess.rs` (`tokenize`, `Tok`); errors as `Result<_, String>` with user-facing messages; tests inline in `mod tests`.
 - **Validate**: `cargo test -p notecal-core datetime`
+- **Done**: `src/datetime.rs` (tokenizer, grammar, calendar arithmetic, formatting) on jiff 1.0.1; 12 unit tests. Weekday is shown for a time on another day than the local date (`now in New York` → `Tue 22:00 EST`).
 
-#### Task 2: Engine integration and the clock
+#### Task 2: Engine integration and the clock ✅
 - **Action**: add `Clock` to `Settings`, try dates before fend in `evaluate_expr`, and store date variables per line in `CachedLine`. Add `uses_time`, and make stale-minute lines re-evaluate. Totals skip date lines.
 - **Mirror**: `References` and how `CachedLine` carries state forward; the `TOO_LONG` re-evaluation rule in `Engine::evaluate`.
 - **Validate**: engine unit tests for cache reuse across a minute change; `cargo test -p notecal-core`.
+- **Done**: `Engine::evaluate_at` and `evaluate_note_at` take `now`; `evaluate` uses the system clock. The clock is not in `Settings` (that would clear the whole cache every minute); the engine remembers the last minute and zone instead. `DateState` (date variables, date `prev`, names the note assigned) is carried in `CachedLine`. A user variable named `time`/`now` keeps its meaning.
 
-#### Task 3: Zones and aliases
+#### Task 3: Zones and aliases ✅
 - **Action**: write the `zones.rs` alias table, case-insensitive with multi-word names (`New York`, `Los Angeles`). Unknown names give "Unknown time zone 'X'".
 - **Validate**: unit tests for every alias resolving to a zone jiff knows.
+- **Done**: `src/datetime/zones.rs`, 200+ aliases, plus `UTC±H[:MM]` offsets; a test checks every alias resolves.
 
-#### Task 4: Golden cases
+#### Task 4: Golden cases ✅
 - **Action**: add the `@now`/`@zone` directives to `tests/golden.rs`, and `datetime.txt` with at least 60 cases. Raise the harness minimum.
 - **Mirror**: the existing `@locale` / `@precision` directive handling.
 - **Validate**: `cargo test -p notecal-core --test golden`
+- **Done**: `datetime.txt`, 91 cases (suite 425); harness minimum 400. The 4 first-run failures were test mistakes (`a`/`b` are units in fend; London is on BST on 24 Oct).
 
-#### Task 5: App wiring
+#### Task 5: App wiring ✅
 - **Action**: build the clock in `evaluator.rs`, add `uses_time` to the response, and add a minute ticker in the UI while visible and needed. Add highlighting tokens and completion entries.
 - **Mirror**: how `uses_currency` flows from `evaluator.rs` to the UI and its re-evaluation on `rates-updated`.
 - **Validate**: `scripts/check.sh`. By hand: `now` updates within a minute of the clock changing, and stops updating while the window is hidden.
+- **Done**: `uses_time` in `EvalResponse`; the UI re-evaluates just after each minute while the window is visible and on focus. Highlighting needed no change (date words already show as units); date words added to completion. Not yet checked by hand in the running app.
 
-#### Task 6: Docs and performance
+#### Task 6: Docs and performance ✅
 - **Action**: README "What it does" and an examples section, CHANGELOG, and PRD C11 marked done. Re-run the engine benches.
 - **Validate**: `note_200_uncached` stays within 10% of its M5 number, and keystroke cost is unchanged for notes without dates.
+- **Done**: benches unchanged or better than M5 (`note_200_uncached` 12.5 ms vs 12.9, `single_line` 124 µs vs 135, last-line edit 124 µs vs 130). README, CHANGELOG, PRD row updated.
 
 ### Validation
 
@@ -177,7 +183,7 @@ cargo bench -p notecal-core -- --quick
 - **Unsigned installer:** SmartScreen will warn, and the README covers "More info → Run anyway".
 - **iCloud Drive on macOS:** document a notes folder in iCloud Drive, and handle evicted `.name.txt.icloud` placeholders: list them as notes and download on open (`brctl download`), or show "not downloaded".
 
-## Open decisions
+## Decisions (2026-11-18)
 
-- **The v1.0.0 release:** publish the held 1.0.0 draft now, with these milestones as 1.1–1.5, or keep everything unreleased until M6 is done and release that as 1.0.0? The `v1.0.0` tag already exists; re-tagging means deleting and re-pushing it.
-- **Weekday and month names:** English, or localized with M9? The plan assumes English until M9.
+- **Release:** 1.0.0 ships after M6–M10 are done. The early `v1.0.0` tag and its draft release were deleted. The rc tags stay as build checks. Milestones are not released one by one.
+- **Weekday and month names:** English by default. M9 can localize them.

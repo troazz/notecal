@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — 2026-11-18
+## 1.0.0 — unreleased
 
 First release.
 
@@ -8,6 +8,7 @@ First release.
 - Natural math per line with arbitrary precision (fend), units and conversions, hex/binary/octal, math functions and constants.
 - Natural-language percentages (`20% of 50`, `50 + 10%`, `5 as % of 20`), variables, `prev`, and block totals with `sum`/`total`/`avg`.
 - Currency conversion with daily rates from open.er-api.com, cached for offline use.
+- Dates and times: `today`, `now`, `tomorrow`, ISO and month-name dates, `3pm`; calendar arithmetic (`+ 1 month` keeps the day, clamped at month end); differences between dates in any time unit; time zone conversion by IANA name, city, country, abbreviation or `UTC+7`. Lines with `now` refresh every minute.
 - `en` and `id` number formats, adjustable precision; a line that takes too long is stopped without blocking the editor.
 
 ### Notes and editor

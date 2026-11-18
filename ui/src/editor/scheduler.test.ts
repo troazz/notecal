@@ -23,6 +23,7 @@ function setup() {
       version,
       lines: [{ display: String(version), copy: null, error: null }],
       uses_currency: false,
+      uses_time: false,
     });
   const tick = () => new Promise((r) => setTimeout(r, 0));
   const skip = (i: number) => resolvers[i]!(null);
