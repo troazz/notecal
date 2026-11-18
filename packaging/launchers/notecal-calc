@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Ask for an expression in the Omarchy menu, show the result as a
+# notification and copy it. Needs notecal-cli, omarchy-menu-input, wl-copy.
+# Add it to the Omarchy menu (docs/linux-setup.md#launchers).
+set -euo pipefail
+
+expression=$(omarchy-menu-input "Calculate" --width 500) || exit 0
+[[ -n ${expression//[[:space:]]/} ]] || exit 0
+
+if result=$(notecal-cli "$expression" 2>&1); then
+  printf '%s' "$result" | wl-copy
+  notify-send --app-name=notecal "$result" "$expression · copied"
+else
+  notify-send --app-name=notecal --urgency=critical "No result" "${result#notecal-cli: }"
+fi

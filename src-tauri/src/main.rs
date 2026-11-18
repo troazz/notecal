@@ -1,8 +1,7 @@
 mod commands;
+mod er_api;
 mod evaluator;
 mod notes;
-mod rates;
-mod settings;
 mod shell;
 mod state;
 mod theme;
@@ -14,6 +13,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use commands::{Notes, RatesState, SettingsState, ThemeSource};
 use evaluator::{EvalRequest, EvalResponse, Evaluator};
+use notecal_env::{rates, settings};
 use tauri::{Manager, State};
 use tauri_plugin_window_state::StateFlags;
 use watch::Watch;
@@ -119,7 +119,7 @@ fn main() {
             let engine_settings = settings.engine();
             let rates = RatesState::new(
                 rates::RatesStore::load(commands::rates_path(&paths.cache_dir()?)),
-                Arc::new(rates::ErApi),
+                Arc::new(er_api::ErApi),
             );
             app.state::<Arc<Evaluator>>()
                 .set_rates(rates.initial_rates());

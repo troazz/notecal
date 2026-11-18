@@ -13,6 +13,10 @@ First release.
 - `~/.config/notecal/definitions.txt`: your own variables, functions, dates and units (`unit sprint = 2 weeks`) for every note; applies live, and bad lines are listed in Settings.
 - `en` and `id` number formats, adjustable precision; a line that takes too long is stopped without blocking the editor.
 
+### Command line
+- `notecal-cli`: evaluate an expression, a piped note or a saved note (`--note NAME`) from the terminal, with the app's settings, definitions and cached rates; `--copy` prints bare numbers. Installed with the Arch package.
+- Launcher scripts: an Omarchy menu entry (`notecal-calc`) and a Raycast script command.
+
 ### Notes and editor
 - Several notes as `.txt` files with autosave; safe with sync tools (conflict copies instead of overwrites).
 - Quick switcher (Ctrl+P), syntax highlighting, autocomplete, search, multiple cursors, copy shortcuts, screen-reader announcements.

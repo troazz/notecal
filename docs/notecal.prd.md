@@ -249,7 +249,8 @@ evaluate({ version, text, locale }) →
 ```
 notecal/
 ├── crates/notecal-core/   # preprocessor + fend wrapper, no Tauri deps
-├── crates/notecal-cli/    # CLI evaluation (A7, P2)
+├── crates/notecal-cli/    # CLI evaluation (A7)
+├── crates/notecal-env/    # settings, definitions, rates cache, paths (shared by app and CLI)
 ├── src-tauri/             # commands, plugins, storage, --toggle
 ├── ui/                    # Svelte + CodeMirror
 └── docs/                  # this PRD
@@ -304,7 +305,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 | 5 | Release + Gate 2 (~1.5 w) | CI builds `.dmg`, AppImage and AUR inputs with size checks; ≥ 300 golden cases; v1.0 tagged | in-progress | `.claude/plans/m5-release-gate2.plan.md` |
 | 6 | Dates and time zones (~2 w) | C11: `today`/`now`, calendar date arithmetic, date differences, time zone conversion by IANA name, city or abbreviation; time-dependent lines refresh | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 7 | CSS units and custom definitions (~1 w) | `px`/`pt`/`em`/`rem` (CSS meaning wins) with PPI and em settings; `definitions.txt` loaded before every note | complete | `.claude/plans/m6-dates-timezones.plan.md` |
-| 8 | Command-line tool (~1 w) | A7: `notecal-cli` for expressions and whole notes, sharing settings, rates cache and definitions; launcher examples; packaged for AUR inputs and the cask | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
+| 8 | Command-line tool (~1 w) | A7: `notecal-cli` for expressions and whole notes, sharing settings, rates cache and definitions; launcher examples; packaged for AUR inputs and the cask | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 9 | UI languages (~1 w) | Interface strings in a catalog; English and Indonesian; `language = "auto"` | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
 | 10 | Windows and iCloud Drive (~2 w) | Windows build, tests and installer in CI; Windows-safe saves; iCloud Drive notes folder on macOS | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
 

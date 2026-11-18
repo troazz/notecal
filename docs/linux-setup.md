@@ -100,6 +100,29 @@ unit sprint = 2 weeks    # a unit that converts: 6 weeks in sprints
 
 A note cannot reassign a defined name. A line that doesn't work is listed in Settings (Ctrl+,) with its line number; the other lines still load.
 
+## Command line
+
+`notecal-cli` evaluates without opening the app, with the same settings, definitions and cached exchange rates (it never fetches rates itself):
+
+```sh
+notecal-cli 5 km in miles          # 3.106856 miles
+notecal-cli -c '1500 * 12'         # 18000 (bare number, for scripts)
+notecal-cli --note budget          # a saved note, each line with its result
+printf 'a = 2\na * 21\n' | notecal-cli
+```
+
+It exits with 1 when an expression has no result (the reason goes to stderr) and 2 for a usage error.
+
+## Launchers
+
+`packaging/launchers/notecal-calc` asks for an expression in the Omarchy menu, shows the result as a notification and copies it. The Arch package installs it as `notecal-calc`; otherwise copy it somewhere on your `PATH`. Then add a row to `~/.config/omarchy/extensions/omarchy-menu.jsonc`:
+
+```jsonc
+"notecal": {"icon":"󰃬","label":"Calculate","aliases":["calc"],"description":"notecal: evaluate an expression and copy the result","action":"notecal-calc"},
+```
+
+Bind it to a key in Hyprland the same way as `notecal --toggle`. On macOS, `packaging/launchers/raycast-notecal.sh` is the same thing as a Raycast script command.
+
 ## WebKitGTK
 
 notecal sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` at startup, which cut idle CPU from ~11% to ~1% on Hyprland (docs/gate1.md). Set `WEBKIT_DISABLE_DMABUF_RENDERER=0` to turn the DMABUF renderer back on.

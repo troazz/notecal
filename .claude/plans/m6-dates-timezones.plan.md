@@ -159,6 +159,8 @@ cargo bench -p notecal-core -- --quick
 - **PRD change:** the non-goal "variables shared across notes" becomes "only through the definitions file".
 
 **M8 — Command-line tool**
+
+> **Done (2026-11-18).** `crates/notecal-env` now owns settings, definitions, the rates cache, `write_atomic` and the paths; it was moved from `src-tauri` with `git mv`, and the network fetch (`er_api.rs`) stayed in the app, so the CLI has no network code. `crates/notecal-cli` (2.0 MB release binary): an expression, `-` or piped stdin, `--note NAME`, `--copy`; exit 1 for no result, 2 for usage. Unit tests plus end-to-end tests that run the binary with its own XDG folders. The PKGBUILD builds and installs it. Launchers: `packaging/launchers/notecal-calc` (Omarchy menu input → notification and clipboard; tested live) and `raycast-notecal.sh`. **Left for release prep:** the macOS `.dmg`/cask and the AppImage don't contain `notecal-cli` yet. Tauri's `externalBin` needs per-target binaries, and a universal macOS CLI built in CI, which can only be checked with a release run.
 - **Shared crate:** move the read side of settings and the rates cache, plus their paths, from `src-tauri` into a small `notecal-env` crate used by the app and the CLI.
 - **The `crates/notecal-cli` binary `notecal-cli` (no GUI dependencies):**
   - `notecal-cli EXPR…` evaluates an expression.

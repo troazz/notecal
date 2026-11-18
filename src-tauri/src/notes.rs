@@ -5,17 +5,16 @@
 //! or written and comparing it with the file: notes are small, and the
 //! comparison is exact.
 
+use notecal_env::fs::write_atomic;
 use std::collections::HashMap;
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::UNIX_EPOCH;
 
 use serde::Serialize;
 
 const EXTENSION: &str = "txt";
-const TEMP_PREFIX: &str = ".notecal-tmp-";
 const MAX_NAME_BYTES: usize = 120;
 
 /// One entry in the note list.
@@ -305,33 +304,10 @@ fn read_if_exists(path: &Path) -> io::Result<Option<String>> {
     }
 }
 
-/// Writes through a hidden temp file in the same directory and renames it
-/// over `path`, so a crash never leaves a half-written note.
-pub fn write_atomic(dir: &Path, path: &Path, text: &str) -> io::Result<()> {
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-    let temp = dir.join(format!(
-        "{TEMP_PREFIX}{}-{}",
-        std::process::id(),
-        COUNTER.fetch_add(1, Ordering::Relaxed)
-    ));
-    let result = (|| {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp)?;
-        file.write_all(text.as_bytes())?;
-        file.sync_all()?;
-        fs::rename(&temp, path)
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&temp);
-    }
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use notecal_env::fs::TEMP_PREFIX;
     use tempfile::TempDir;
 
     const STAMP: &str = "2026-11-05 1830";

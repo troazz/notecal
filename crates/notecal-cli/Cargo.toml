@@ -1,0 +1,23 @@
+[package]
+name = "notecal-cli"
+version = "1.0.0"
+description = "Evaluate notecal expressions and notes from the terminal"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "notecal-cli"
+path = "src/main.rs"
+
+[dependencies]
+notecal-core = { path = "../notecal-core" }
+notecal-env = { path = "../notecal-env" }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true
