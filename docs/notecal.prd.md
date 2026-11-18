@@ -302,7 +302,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 | 3 | Notes and editor (~2 w) | N1–N5, E1–E6 (E5, E7–E9 if time allows); notes are safe under Syncthing | complete | `.claude/plans/m3-notes-editor.plan.md` |
 | 4 | App shell and currency (~1.5 w) | A1, A2, A3–A6, C9 with cached offline rates | complete | `.claude/plans/m4-app-shell-currency.plan.md` |
 | 5 | Release + Gate 2 (~1.5 w) | CI builds `.dmg`, AppImage and AUR inputs with size checks; ≥ 300 golden cases; v1.0 tagged | in-progress | `.claude/plans/m5-release-gate2.plan.md` |
-| 6 | Dates and time zones (~2 w) | C11: `today`/`now`, calendar date arithmetic, date differences, time zone conversion by IANA name, city or abbreviation; time-dependent lines refresh | in-progress | `.claude/plans/m6-dates-timezones.plan.md` |
+| 6 | Dates and time zones (~2 w) | C11: `today`/`now`, calendar date arithmetic, date differences, time zone conversion by IANA name, city or abbreviation; time-dependent lines refresh | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 7 | CSS units and custom definitions (~1 w) | `px`/`pt`/`em`/`rem` (CSS meaning wins) with PPI and em settings; `definitions.txt` loaded before every note | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
 | 8 | Command-line tool (~1 w) | A7: `notecal-cli` for expressions and whole notes, sharing settings, rates cache and definitions; launcher examples; packaged for AUR inputs and the cask | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
 | 9 | UI languages (~1 w) | Interface strings in a catalog; English and Indonesian; `language = "auto"` | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |

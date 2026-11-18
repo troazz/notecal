@@ -1,0 +1,116 @@
+;; C11 dates, times and time zones. Clock: Wed 18 Nov 2026 10:00, Asia/Jakarta (UTC+7).
+today => Wed, 18 Nov 2026 || 2026-11-18
+now => 10:00 || 2026-11-18 10:00
+time => 10:00
+tomorrow => Thu, 19 Nov 2026
+yesterday => Tue, 17 Nov 2026
+today + 1 day => Thu, 19 Nov 2026
+today + 2 weeks => Wed, 2 Dec 2026
+today - 3 days => Sun, 15 Nov 2026
+today + 1 month => Fri, 18 Dec 2026
+today + 1 year => Thu, 18 Nov 2027
+today + 1 month 2 days => Sun, 20 Dec 2026
+today + 1 week - 1 day => Tue, 24 Nov 2026
+now + 2 hours => 12:00
+now + 90 minutes => 11:30
+now - 30 min => 09:30
+now + 1.5 hours => 11:30
+now + 14 hours => Thu, 19 Nov 2026 00:00
+---
+;; Literals
+2026-12-25 => Fri, 25 Dec 2026 || 2026-12-25
+25 Dec => Fri, 25 Dec 2026
+Dec 25 => Fri, 25 Dec 2026
+December 25, 2027 => Sat, 25 Dec 2027
+1 jan 2027 => Fri, 1 Jan 2027
+sept 1 => Tue, 1 Sep 2026
+3pm => 15:00 || 2026-11-18 15:00
+3:30pm => 15:30
+12pm => 12:00
+12am => 00:00
+15:30 => 15:30
+noon => 12:00
+midnight => 00:00
+tomorrow 9am => Thu, 19 Nov 2026 09:00
+2026-12-31 23:59 => Thu, 31 Dec 2026 23:59
+---
+;; Calendar arithmetic: month ends clamp, leap years
+2026-01-31 + 1 month => Sat, 28 Feb 2026
+2028-01-31 + 1 month => Tue, 29 Feb 2028
+2028-02-29 + 1 year => Wed, 28 Feb 2029
+2026-03-31 - 1 month => Sat, 28 Feb 2026
+2026-12-31 + 1 day => Fri, 1 Jan 2027
+2024-02-28 + 1 day => Thu, 29 Feb 2024
+---
+;; Differences are durations, formatted like any quantity
+2026-12-25 - today => 37 days
+2027-01-01 - 2026-01-01 => 365 days
+2029-01-01 - 2028-01-01 => 366 days
+25 Dec - today in weeks => 5.285714 weeks
+today - 2026-11-01 => 17 days
+2026-11-01 - today => -17 days
+now - 9am => 1 hour
+5pm - now in minutes => 420 minutes
+tomorrow - today in hours => 24 hours
+---
+;; Time zones: IANA names, cities, countries, abbreviations, offsets
+now in Tokyo => 12:00 JST
+now in tokyo => 12:00 JST
+now in JST => 12:00 JST
+now in Japan => 12:00 JST
+now in London => 03:00 GMT
+now in UTC => 03:00 UTC
+now in Asia/Kolkata => 08:30 IST
+now in New York => Tue 22:00 EST
+now in Los Angeles => Tue 19:00 PST
+now in Sydney => 14:00 AEDT
+now in UTC+7 => 10:00 +07
+now in WITA => 11:00 WITA
+3pm Jakarta in London => 08:00 GMT
+3pm London in Jakarta => 22:00 WIB
+9am New York in Tokyo => 23:00 JST
+noon UTC in WIB => 19:00 WIB
+time in PST => Tue 19:00 PST
+today in Tokyo => Wed, 18 Nov 2026
+---
+;; Variables and prev
+deadline = 2026-12-25 => Fri, 25 Dec 2026
+deadline - today => 37 days
+deadline - 1 week => Fri, 18 Dec 2026
+start = today => Wed, 18 Nov 2026
+prev + 3 days => Sat, 21 Nov 2026
+
+x = 5 => 5
+y = 10 => 10
+total => 15
+---
+;; Daylight saving: a calendar day keeps the wall time, 24 hours does not
+@now 2026-03-07T09:00
+@zone America/New_York
+now => 09:00
+now + 1 day => Sun, 8 Mar 2026 09:00
+now + 24 hours => Sun, 8 Mar 2026 10:00
+2026-03-09 - 2026-03-08 => 1 day
+now in London => 14:00 GMT
+---
+@now 2026-10-24T12:00
+@zone Europe/London
+now => 12:00
+now in New York => 07:00 EDT
+now + 1 day => Sun, 25 Oct 2026 12:00
+now + 24 hours => Sun, 25 Oct 2026 11:00
+---
+@locale id
+25 Dec - today in weeks => 5,285714 weeks
+today => Wed, 18 Nov 2026
+---
+;; Errors: no result
+now in Atlantis
+today + 5 kg
+2026-02-30
+today * 2
+---
+;; Not dates: these stay with fend
+3pm in nm => 0.003 nm
+time = 6 hours => 6 hours
+time in minutes => 360 minutes

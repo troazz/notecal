@@ -23,6 +23,9 @@ pub struct EvalResponse {
     pub lines: Vec<LineDto>,
     /// Whether the note names a currency (the status line then shows the rates date).
     pub uses_currency: bool,
+    /// Whether a result depends on the clock (`now`, `today`): the UI then
+    /// re-evaluates every minute while the window is visible.
+    pub uses_time: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -98,6 +101,7 @@ impl Evaluator {
         let lines = engine.evaluate(&request.text, &settings, rates.as_ref());
         Some(EvalResponse {
             version: request.version,
+            uses_time: lines.iter().any(|line| line.uses_time),
             lines: lines.into_iter().map(LineDto::from).collect(),
             uses_currency: mentions_currency(&request.text),
         })

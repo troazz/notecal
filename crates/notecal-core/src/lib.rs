@@ -4,6 +4,8 @@
 //! [`LineResult`] per line. The engine caches each line's result and the
 //! evaluation state after it, so a later call only re-evaluates from the
 //! first changed line downward. [`evaluate_note`] is a one-shot shortcut.
+//! The `_at` variants take the current time, for dates (`today`, `now`); the
+//! others read the system clock.
 //!
 //! Variables live in the engine's evaluation state, which belongs to one
 //! note: use one `Engine` per open note.
@@ -11,6 +13,7 @@
 #![forbid(unsafe_code)]
 
 pub mod currency;
+mod datetime;
 mod format;
 mod preprocess;
 
@@ -22,7 +25,9 @@ use fend_core::{
     Context, DecimalSeparatorStyle, ExchangeRateFnV2, ExchangeRateFnV2Options, Interrupt,
     evaluate_with_interrupt,
 };
+use jiff::ZonedDateTime;
 
+use datetime::{DateState, Outcome};
 use preprocess::LineKind;
 
 /// How long one line may take before it is interrupted (PRD C13).
@@ -121,6 +126,9 @@ pub struct LineResult {
     pub copy: Option<String>,
     /// Why the line has no result, for the hover message only.
     pub error: Option<String>,
+    /// The result changes as time passes (`now`, `today`): re-evaluate the
+    /// note when the minute changes.
+    pub uses_time: bool,
 }
 
 impl LineResult {
@@ -136,6 +144,17 @@ impl LineResult {
 #[must_use]
 pub fn evaluate_note(text: &str, settings: &Settings, rates: Option<&Rates>) -> Vec<LineResult> {
     Engine::default().evaluate(text, settings, rates)
+}
+
+/// [`evaluate_note`] at a given current time.
+#[must_use]
+pub fn evaluate_note_at(
+    text: &str,
+    settings: &Settings,
+    rates: Option<&Rates>,
+    now: &ZonedDateTime,
+) -> Vec<LineResult> {
+    Engine::default().evaluate_at(text, settings, rates, now)
 }
 
 /// What `prev` and totals can refer to at a given line.
@@ -167,6 +186,7 @@ struct CachedLine {
     result: LineResult,
     context_after: Context,
     references_after: References,
+    dates_after: DateState,
 }
 
 /// Evaluates a note and remembers enough to re-evaluate it cheaply.
@@ -177,20 +197,36 @@ pub struct Engine {
     lines: Vec<CachedLine>,
     /// Whether a name already means something to fend (unit, function, …).
     builtin_names: HashMap<String, bool>,
+    /// The minute and time zone of the previous call: lines that use the
+    /// clock are re-evaluated when either changes.
+    clock: Option<(i64, jiff::tz::TimeZone)>,
 }
 
 impl Engine {
-    /// Evaluates every line of `text`, top to bottom.
-    ///
-    /// Returns exactly one entry per line (`text.split('\n')`). Lines above
-    /// the first line that changed since the previous call are reused,
-    /// except lines that hit the time limit, which are always retried.
+    /// [`Engine::evaluate_at`] with the system clock and time zone.
     #[must_use]
     pub fn evaluate(
         &mut self,
         text: &str,
         settings: &Settings,
         rates: Option<&Rates>,
+    ) -> Vec<LineResult> {
+        self.evaluate_at(text, settings, rates, &ZonedDateTime::now())
+    }
+
+    /// Evaluates every line of `text`, top to bottom, at time `now`.
+    ///
+    /// Returns exactly one entry per line (`text.split('\n')`). Lines above
+    /// the first line that changed since the previous call are reused,
+    /// except lines that hit the time limit, which are always retried, and
+    /// lines that use the clock once the minute or time zone has changed.
+    #[must_use]
+    pub fn evaluate_at(
+        &mut self,
+        text: &str,
+        settings: &Settings,
+        rates: Option<&Rates>,
+        now: &ZonedDateTime,
     ) -> Vec<LineResult> {
         let same_config = self
             .config
@@ -203,6 +239,12 @@ impl Engine {
             self.config = Some((settings.clone(), rates.cloned()));
         }
         let base = self.base.as_ref().expect("set above");
+        let clock = (
+            now.timestamp().as_second().div_euclid(60),
+            now.time_zone().clone(),
+        );
+        let clock_moved = self.clock.as_ref() != Some(&clock);
+        self.clock = Some(clock);
 
         let lines: Vec<&str> = text.split('\n').collect();
         let feeds_total = preprocess::feeds_total(&lines);
@@ -217,14 +259,20 @@ impl Engine {
                 cached.text == **line
                     && cached.feeds_total == **feeds
                     && cached.result.error.as_deref() != Some(TOO_LONG)
+                    && !(clock_moved && cached.result.uses_time)
             })
             .count();
         self.lines.truncate(unchanged);
 
-        let (mut context, mut references) = match self.lines.last() {
-            Some(cached) => (cached.context_after.clone(), cached.references_after),
-            None => (base.clone(), References::default()),
+        let restore = |lines: &[CachedLine]| match lines.last() {
+            Some(cached) => (
+                cached.context_after.clone(),
+                cached.references_after,
+                cached.dates_after.clone(),
+            ),
+            None => (base.clone(), References::default(), DateState::default()),
         };
+        let (mut context, mut references, mut dates) = restore(&self.lines);
         for (line, &feeds) in lines.iter().zip(&feeds_total).skip(unchanged) {
             let builtin_names = &mut self.builtin_names;
             let outcome = catch_unwind(AssertUnwindSafe(|| {
@@ -233,16 +281,14 @@ impl Engine {
                     builtin_names,
                     settings,
                     rates,
+                    now,
                 };
-                line_eval.run(line, feeds, &mut context, &mut references)
+                line_eval.run(line, feeds, &mut context, &mut references, &mut dates)
             }));
             let result = outcome.unwrap_or_else(|_| {
                 // A panic may leave fend's context half-updated: restore the
                 // state after the previous line.
-                (context, references) = match self.lines.last() {
-                    Some(cached) => (cached.context_after.clone(), cached.references_after),
-                    None => (base.clone(), References::default()),
-                };
+                (context, references, dates) = restore(&self.lines);
                 LineResult::error("Internal error while evaluating this line")
             });
             self.lines.push(CachedLine {
@@ -251,6 +297,7 @@ impl Engine {
                 result,
                 context_after: context.clone(),
                 references_after: references,
+                dates_after: dates.clone(),
             });
         }
         self.lines.iter().map(|c| c.result.clone()).collect()
@@ -293,6 +340,7 @@ struct LineEval<'a> {
     builtin_names: &'a mut HashMap<String, bool>,
     settings: &'a Settings,
     rates: Option<&'a Rates>,
+    now: &'a ZonedDateTime,
 }
 
 impl LineEval<'_> {
@@ -302,6 +350,7 @@ impl LineEval<'_> {
         feeds_total: bool,
         context: &mut Context,
         references: &mut References,
+        dates: &mut DateState,
     ) -> LineResult {
         let line = line.trim();
         match preprocess::classify(line) {
@@ -314,7 +363,7 @@ impl LineEval<'_> {
             LineKind::Expr => {}
         }
         let line = preprocess::strip_comment(line);
-        match self.evaluate_expr(line, feeds_total, context, references) {
+        match self.evaluate_expr(line, feeds_total, context, references, dates) {
             Ok(Some(result)) => result,
             Ok(None) => LineResult::default(),
             Err(_) if self.rates.is_none() && currency::mentions_currency(line) => {
@@ -332,12 +381,55 @@ impl LineEval<'_> {
         feeds_total: bool,
         context: &mut Context,
         references: &mut References,
+        dates: &mut DateState,
     ) -> Result<Option<LineResult>, String> {
         let assignment = preprocess::split_assignment(line);
-        let expr = assignment.map_or(line, |(_, rhs)| rhs);
-        if let Some((name, _)) = assignment {
+        let mut expr = assignment.map_or(line, |(_, rhs)| rhs);
+        let name = assignment.map(|(name, _)| name);
+        if let Some(name) = name {
             self.check_name(name)?;
         }
+
+        // Dates are evaluated before fend (see `datetime`). A date difference
+        // comes back as a duration for fend to evaluate like any quantity.
+        let fend_duration;
+        let mut uses_time = false;
+        if let Some(evaluated) = datetime::evaluate(expr, self.now, dates) {
+            let evaluated = evaluated?;
+            uses_time = evaluated.uses_time;
+            match evaluated.outcome {
+                Outcome::Value(value) => {
+                    dates.set_date(name, &value);
+                    let (display, copy) = datetime::format(&value, self.now);
+                    return Ok(Some(LineResult {
+                        display: Some(display),
+                        copy: Some(copy),
+                        error: None,
+                        uses_time,
+                    }));
+                }
+                Outcome::Fend(duration) => {
+                    fend_duration = duration;
+                    expr = &fend_duration;
+                }
+            }
+        }
+        let result = self.evaluate_fend(expr, name, feeds_total, context, references)?;
+        if result.is_some() {
+            dates.set_other(name);
+        }
+        Ok(result.map(|r| LineResult { uses_time, ..r }))
+    }
+
+    /// Evaluates a non-date expression with fend; `name` receives the result.
+    fn evaluate_fend(
+        &mut self,
+        expr: &str,
+        name: Option<&str>,
+        feeds_total: bool,
+        context: &mut Context,
+        references: &mut References,
+    ) -> Result<Option<LineResult>, String> {
         let locale = self.settings.locale;
         preprocess::check_group_separators(
             expr,
@@ -359,7 +451,7 @@ impl LineEval<'_> {
         // user's variable. Counted lines with a total below them also add it to
         // the block's running total in the same evaluation.
         let mut store = format!("{} = ", preprocess::PREV_VAR);
-        if let Some((name, _)) = assignment {
+        if let Some(name) = name {
             store.push_str(name);
             store.push_str(" = ");
         }
@@ -408,6 +500,7 @@ impl LineEval<'_> {
             display: Some(formatted.display),
             copy: Some(formatted.copy),
             error: None,
+            uses_time: false,
         };
         Ok(Some(result))
     }
@@ -519,5 +612,29 @@ mod tests {
             engine.evaluate(text, &id, None)[0].display.as_deref(),
             Some("0,25")
         );
+    }
+
+    #[test]
+    fn clock_lines_refresh_when_the_minute_changes() {
+        let zone = jiff::tz::TimeZone::get("Asia/Jakarta").unwrap();
+        let at = |minute| {
+            jiff::civil::Date::new(2026, 11, 18)
+                .unwrap()
+                .at(10, minute, 0, 0)
+                .to_zoned_datetime(zone.clone())
+                .unwrap()
+        };
+        let settings = Settings::default();
+        let text = "x = 2\nnow\nx * 3";
+        let mut engine = Engine::default();
+
+        let first = engine.evaluate_at(text, &settings, None, &at(0));
+        assert_eq!(first[1].display.as_deref(), Some("10:00"));
+        assert!(first[1].uses_time && !first[0].uses_time && !first[2].uses_time);
+
+        let later = engine.evaluate_at(text, &settings, None, &at(1));
+        assert_eq!(later[1].display.as_deref(), Some("10:01"));
+        assert_eq!(later[2].display.as_deref(), Some("6"));
+        assert_eq!(engine.evaluate_at(text, &settings, None, &at(1)), later);
     }
 }

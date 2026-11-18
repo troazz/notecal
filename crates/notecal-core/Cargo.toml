@@ -10,6 +10,7 @@ publish = false
 
 [dependencies]
 fend-core = "1.5.9"
+jiff = "1.0.1"
 
 [dev-dependencies]
 criterion = "0.8"

@@ -21,9 +21,30 @@
   /** PRD C9 status line: shown only when the note uses a currency. */
   let usesCurrency = $state(false);
   let ratesDate = $state<string | null>(null);
+  /** C11: the note shows `now`/`today`, so results refresh on the minute. */
+  let usesTime = $state(false);
 
   let editor: EditorController | undefined;
   let session: NoteSession | undefined;
+
+  // While a result depends on the clock, re-evaluate just after each minute
+  // starts, skipping ticks while the window is hidden (it refreshes on focus).
+  $effect(() => {
+    if (!usesTime) return;
+    let timeout: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      timeout = setTimeout(() => void tick(), 60_000 - (Date.now() % 60_000) + 50);
+    };
+    const tick = async () => {
+      const visible = await getCurrentWindow()
+        .isVisible()
+        .catch(() => true);
+      if (visible) editor?.reevaluate();
+      schedule();
+    };
+    schedule();
+    return () => clearTimeout(timeout);
+  });
 
   $effect(() => {
     if (!showStats) return;
@@ -188,6 +209,7 @@
       notesApi.onDiskChange((event) => void session?.diskChanged(event)),
       appWindow.onFocusChanged(({ payload: focused }) => {
         if (!focused) void persist();
+        else if (usesTime) editor?.reevaluate();
       }),
       appWindow.onCloseRequested(async (event) => {
         await persist();
@@ -282,7 +304,10 @@
     {timer}
     onready={onEditorReady}
     onedit={() => session?.edited()}
-    onresults={(response) => (usesCurrency = response.uses_currency)}
+    onresults={(response) => {
+      usesCurrency = response.uses_currency;
+      usesTime = response.uses_time;
+    }}
   />
   {#if usesCurrency}
     <div class="status" title="Exchange rates by open.er-api.com">
