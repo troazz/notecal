@@ -26,11 +26,19 @@ Copy a result (it shows "Copied"), switch notes with Ctrl+P, and change the Omar
 
 ## Install
 
-### Arch Linux (AUR)
+### Arch Linux
+
+notecal isn't on the AUR yet, so build the package from this repository. It uses
+the same PKGBUILD, and pacman installs, upgrades and removes it like any other
+package:
 
 ```sh
-yay -S notecal        # or: paru -S notecal
+git clone https://github.com/troazz/notecal
+cd notecal/packaging/aur
+makepkg -si
 ```
+
+To upgrade later, run `git pull` in the clone, then `makepkg -si` again.
 
 ### Other Linux
 
