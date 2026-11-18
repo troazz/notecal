@@ -87,7 +87,7 @@ More, including an Omarchy menu entry and a Raycast script: [docs/linux-setup.md
 
 | Keys | Does |
 |---|---|
-| Ctrl+P | Find, create, rename (F2) or delete (Ctrl+Delete) a note |
+| Ctrl+P | Find, create, rename (F2) or delete (Ctrl+Delete) a note; type `?` for the cheatsheet of calculations and functions (Enter inserts an example) |
 | Ctrl+, | Settings |
 | Esc | Hide the window |
 | Click a result | Copy it as shown; Alt+click copies the bare number |

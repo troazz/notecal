@@ -48,6 +48,17 @@ async fn evaluate(
 /// Called by the UI when the editor first has focus. Logs time since `main`
 /// and the wall-clock time, so a launcher script can also measure from
 /// process start (see docs/gate1.md).
+/// The cheatsheet with results under the current settings (PRD M11).
+#[tauri::command]
+async fn cheatsheet(
+    evaluator: State<'_, Arc<Evaluator>>,
+) -> Result<Vec<evaluator::CheatSection>, String> {
+    let evaluator = Arc::clone(&evaluator);
+    tauri::async_runtime::spawn_blocking(move || evaluator.cheatsheet())
+        .await
+        .map_err(|e| format!("cheatsheet task failed: {e}"))
+}
+
 #[tauri::command]
 fn mark_ready(startup: State<'_, Startup>) {
     if startup.reported.swap(true, Ordering::SeqCst) {
@@ -221,6 +232,7 @@ fn main() {
             commands::save_settings,
             shell::shortcut_status,
             commands::ui_language,
+            cheatsheet,
             shell::quit,
             shell::tray_available,
             shell::cancel_quit,

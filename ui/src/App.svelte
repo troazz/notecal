@@ -387,6 +387,11 @@
         editor?.focus();
       }}
       onerror={report}
+      oninsert={(text) => {
+        showSwitcher = false;
+        editor?.insertBelow(text);
+        editor?.focus();
+      }}
     />
   {/if}
   {#if showSettings}

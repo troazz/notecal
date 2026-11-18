@@ -1,5 +1,6 @@
+import cheatsheetSource from "../../crates/notecal-core/src/cheatsheet.rs?raw";
 import { afterEach, describe, expect, it } from "vitest";
-import { setLanguage, t, translateMessage } from "./i18n.svelte";
+import { setLanguage, t, translateMessage, type Key } from "./i18n.svelte";
 
 afterEach(() => setLanguage("en"));
 
@@ -44,5 +45,20 @@ describe("translateMessage", () => {
   it("leaves messages it does not know (fend's own) in English", () => {
     setLanguage("id");
     expect(translateMessage("unexpected end of input")).toBe("unexpected end of input");
+  });
+});
+
+describe("cheatsheet", () => {
+  it("has a title in both languages for every section the engine defines", () => {
+    const ids = [...cheatsheetSource.matchAll(/id: "(\w+)"/g)].map((m) => m[1]);
+    expect(ids.length).toBeGreaterThan(5);
+    for (const language of ["en", "id"] as const) {
+      setLanguage(language);
+      for (const id of ids) {
+        const key = `cheatsheet.${id}` as Key;
+        expect(t(key), `${language} ${key}`).not.toBe(key);
+        expect(t(key)).toBeTruthy();
+      }
+    }
   });
 });

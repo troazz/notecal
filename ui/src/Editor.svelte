@@ -11,6 +11,8 @@
     /** Read-only while no note is open, so typing is never silently lost. */
     setReadOnly: (readOnly: boolean) => void;
     focus: () => void;
+    /** Inserts `text` on a new line below the cursor (on the cursor's line if empty). */
+    insertBelow: (text: string) => void;
   }
 </script>
 
@@ -126,6 +128,20 @@
           scrollIntoView: true,
         }),
       focus: () => editor.focus(),
+      insertBelow: (text) => {
+        if (readOnly) return;
+        const line = editor.state.doc.lineAt(editor.state.selection.main.head);
+        const blank = line.text.trim() === "";
+        const from = blank ? line.from : line.to;
+        const insert = blank ? text : `\n${text}`;
+        // An ordinary edit: undo, autosave and evaluation treat it like typing.
+        editor.dispatch({
+          changes: { from, to: line.to, insert },
+          selection: { anchor: from + insert.length },
+          scrollIntoView: true,
+          userEvent: "input",
+        });
+      },
       reevaluate: () => scheduler.changed(),
       setReadOnly: (flag) => {
         readOnly = flag;

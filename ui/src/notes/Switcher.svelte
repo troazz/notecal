@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
   import { notesApi, type NoteInfo } from "./api";
-  import { t } from "../i18n.svelte";
+  import { t, type Key } from "../i18n.svelte";
 
   let {
     current,
@@ -11,6 +12,7 @@
     ondeleted,
     onclose,
     onerror,
+    oninsert,
   }: {
     current: string | null;
     /** Settles pending saves, so none lands on a renamed or deleted note. */
@@ -20,9 +22,41 @@
     ondeleted: (name: string) => void;
     onclose: () => void;
     onerror: (message: string) => void;
+    /** Inserts a cheatsheet example into the note (M11). */
+    oninsert: (text: string) => void;
   } = $props();
 
-  type Row = { kind: "note"; name: string } | { kind: "create"; name: string };
+  /** Mirrors `CheatSection` in src-tauri/src/evaluator.rs. */
+  type CheatSection = {
+    id: string;
+    examples: { text: string; result: string | null }[];
+  };
+
+  type Row =
+    | { kind: "note"; name: string }
+    | { kind: "create"; name: string }
+    | { kind: "cheatsheet" }
+    | { kind: "example"; title: string; text: string; result: string | null; first: boolean };
+
+  function sectionTitle(id: string): string {
+    return t(`cheatsheet.${id}` as Key);
+  }
+
+  function exampleRows(filter: string): Row[] {
+    const rows: Row[] = [];
+    for (const section of sheet ?? []) {
+      const title = sectionTitle(section.id);
+      // The English id too, so `?date` works whatever the interface language.
+      const inTitle = title.toLowerCase().includes(filter) || section.id.includes(filter);
+      let first = true;
+      for (const example of section.examples) {
+        if (!inTitle && !example.text.toLowerCase().includes(filter)) continue;
+        rows.push({ kind: "example", title, ...example, first });
+        first = false;
+      }
+    }
+    return rows;
+  }
 
   let notes = $state<NoteInfo[]>([]);
   let query = $state("");
@@ -34,14 +68,30 @@
   let input: HTMLInputElement;
   let renameInput = $state<HTMLInputElement>();
 
+  /** M11: typing `?` turns the switcher into the cheatsheet. */
+  const cheatMode = $derived(query.trimStart().startsWith("?"));
+  let sheet = $state<CheatSection[] | null>(null);
+
+  $effect(() => {
+    if (cheatMode && sheet === null) {
+      sheet = [];
+      invoke<CheatSection[]>("cheatsheet")
+        .then((sections) => (sheet = sections))
+        .catch((error: unknown) => onerror(String(error)));
+    }
+  });
+
+
   const rows = $derived.by((): Row[] => {
+    if (cheatMode) return exampleRows(query.trimStart().slice(1).trim().toLowerCase());
     const q = query.trim();
     const lower = q.toLowerCase();
     const matches: Row[] = notes
       .filter((n) => n.name.toLowerCase().includes(lower))
       .map((n) => ({ kind: "note", name: n.name }));
     const exact = notes.some((n) => n.name.toLowerCase() === lower);
-    return q && !exact ? [...matches, { kind: "create", name: q }] : matches;
+    if (!q) return [...matches, { kind: "cheatsheet" }];
+    return exact ? matches : [...matches, { kind: "create", name: q }];
   });
 
   $effect(() => {
@@ -65,6 +115,16 @@
 
   async function choose(row: Row | undefined) {
     if (!row) return;
+    if (row.kind === "cheatsheet") {
+      query = "?";
+      selected = 0;
+      input.focus();
+      return;
+    }
+    if (row.kind === "example") {
+      oninsert(row.text);
+      return;
+    }
     if (row.kind === "create") {
       try {
         await notesApi.create(row.name);
@@ -181,7 +241,7 @@
     />
     <!-- Clicking a row must not take focus from the input. -->
     <ul id="note-list" role="listbox" aria-label={t("switcher.notes")} onmousedown={(e) => e.preventDefault()}>
-      {#each rows as row, i (row.kind + row.name)}
+      {#each rows as row, i (row.kind === "example" ? row.title + row.text : row.kind === "cheatsheet" ? "cheatsheet" : row.kind + row.name)}
         <li
           id="note-row-{i}"
           role="option"
@@ -191,7 +251,18 @@
           onclick={() => void choose(row)}
           onkeydown={() => {}}
         >
-          {#if row.kind === "create"}
+          {#if row.kind === "cheatsheet"}
+            <span class="cheat-link">{t("cheatsheet.open")}</span>
+            <span class="tag">?</span>
+          {:else if row.kind === "example"}
+            <span class="example">
+              {#if row.first}<span class="section">{row.title}</span>{/if}
+              <span class="example-line">
+                <code>{row.text.replaceAll("\n", "  ⏎  ")}</code>
+                <span class="result">{row.result ?? ""}</span>
+              </span>
+            </span>
+          {:else if row.kind === "create"}
             <span class="create">{t("switcher.create", { name: row.name })}</span>
           {:else if renaming?.from === row.name}
             <input
@@ -231,14 +302,19 @@
         </li>
       {:else}
         <li class="empty" role="option" aria-selected="false" aria-disabled="true">
-          {t("switcher.empty")}
+          {cheatMode ? t("cheatsheet.none") : t("switcher.empty")}
         </li>
       {/each}
     </ul>
     <p class="sr-only" aria-live="assertive">
       {confirmDelete ? t("switcher.confirmDelete", { name: confirmDelete }) : ""}
     </p>
-    <p class="hint">{t("switcher.help")}</p>
+    {#if cheatMode}
+      <p class="hint">{t("cheatsheet.help")}</p>
+      <p class="hint">{t("cheatsheet.footer")}</p>
+    {:else}
+      <p class="hint">{t("switcher.help")}</p>
+    {/if}
   </div>
 </div>
 
@@ -343,5 +419,41 @@
     margin: 0;
     padding: 0.4rem 0.75rem;
     border-top: 1px solid var(--border-color);
+  }
+  .cheat-link {
+    flex: 1;
+    color: var(--muted-color);
+  }
+  .example {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .section {
+    margin-top: 0.2rem;
+    color: var(--muted-color);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .example-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    min-width: 0;
+  }
+  .example-line code {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--editor-font, monospace);
+  }
+  .example-line .result {
+    flex: none;
+    color: var(--muted-color);
+    font-family: var(--editor-font, monospace);
   }
 </style>
