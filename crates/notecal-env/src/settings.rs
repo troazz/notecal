@@ -50,6 +50,15 @@ pub enum UiLanguage {
     Id,
 }
 
+impl From<UiLanguage> for notecal_core::Language {
+    fn from(language: UiLanguage) -> Self {
+        match language {
+            UiLanguage::En => Self::En,
+            UiLanguage::Id => Self::Id,
+        }
+    }
+}
+
 impl Language {
     /// The language to show, given the system locale (`id-ID`, `en_US.UTF-8`, …).
     #[must_use]
@@ -139,18 +148,20 @@ pub fn load_definitions(path: &Path) -> String {
 
 /// Lines of the definitions file that could not be used, for the Settings screen.
 pub fn definition_problems(settings: &AppSettings, definitions: &str) -> Vec<String> {
-    notecal_core::check_definitions(&settings.engine(definitions), None)
+    notecal_core::check_definitions(&settings.engine(definitions, UiLanguage::En), None)
         .into_iter()
         .map(|e| format!("{DEFINITIONS_FILE} line {}: {}", e.line, e.message))
         .collect()
 }
 
 impl AppSettings {
-    /// Engine settings derived from these and the definitions file's text.
-    pub fn engine(&self, definitions: &str) -> notecal_core::Settings {
+    /// Engine settings derived from these, the definitions file's text and
+    /// the resolved interface language (for weekday and month names).
+    pub fn engine(&self, definitions: &str, language: UiLanguage) -> notecal_core::Settings {
         notecal_core::Settings {
             locale: self.locale.into(),
             precision: self.precision,
+            language: language.into(),
             css_ppi: self.css_ppi,
             css_em_px: self.css_em_px,
             definitions: definitions.to_string(),
@@ -402,7 +413,8 @@ mod tests {
             locale: Locale::Id,
             ..AppSettings::default()
         };
-        let engine = settings.engine("vat = 11%");
+        let engine = settings.engine("vat = 11%", UiLanguage::Id);
+        assert_eq!(engine.language, notecal_core::Language::Id);
         assert_eq!(engine.precision, 2);
         assert_eq!(engine.locale, notecal_core::Locale::Id);
         assert_eq!(engine.css_ppi, 96);

@@ -27,6 +27,8 @@ use jiff::civil::{Date, Time};
 use jiff::tz::TimeZone;
 use jiff::{Span, ZonedDateTime};
 
+use crate::Language;
+
 /// A date or a moment, in a time zone.
 #[derive(Debug, Clone)]
 pub(crate) struct DateValue {
@@ -111,25 +113,58 @@ pub(crate) fn evaluate(
     }
 }
 
-/// Text for the result column and for copying.
-pub(crate) fn format(value: &DateValue, now: &ZonedDateTime) -> (String, String) {
+/// Short weekday and month names for results, Monday first and January first.
+fn names(language: Language) -> (&'static [&'static str; 7], &'static [&'static str; 12]) {
+    match language {
+        Language::En => (
+            &["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            &[
+                "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+            ],
+        ),
+        Language::Id => (
+            &["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"],
+            &[
+                "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
+            ],
+        ),
+    }
+}
+
+/// `Wed` and `Wed, 18 Nov 2026` in `language`.
+fn weekday_and_date(zdt: &ZonedDateTime, language: Language) -> (&'static str, String) {
+    let (days, months) = names(language);
+    let weekday = days[usize::try_from(zdt.weekday().to_monday_zero_offset()).unwrap_or(0)];
+    let month = months[usize::try_from(zdt.month() - 1).unwrap_or(0)];
+    (
+        weekday,
+        format!("{weekday}, {} {month} {}", zdt.day(), zdt.year()),
+    )
+}
+
+/// Text for the result column and for copying. Weekday and month names are
+/// in `language`; the copy is always ISO (`2026-12-25 15:00`).
+pub(crate) fn format(
+    value: &DateValue,
+    now: &ZonedDateTime,
+    language: Language,
+) -> (String, String) {
     let zdt = &value.zdt;
+    let (weekday, date) = weekday_and_date(zdt, language);
     if !value.has_time {
-        return (
-            zdt.strftime("%a, %-d %b %Y").to_string(),
-            zdt.strftime("%Y-%m-%d").to_string(),
-        );
+        return (date, zdt.strftime("%Y-%m-%d").to_string());
     }
     let copy = zdt.strftime("%Y-%m-%d %H:%M").to_string();
     // Compared with the local date: `now in New York` late on the previous
     // evening there shows its weekday.
     let same_day = zdt.date() == now.date();
+    let time = zdt.strftime("%H:%M");
     let mut display = if same_day {
-        zdt.strftime("%H:%M").to_string()
+        time.to_string()
     } else if value.zone_shown {
-        zdt.strftime("%a %H:%M").to_string()
+        format!("{weekday} {time}")
     } else {
-        zdt.strftime("%a, %-d %b %Y %H:%M").to_string()
+        format!("{date} {time}")
     };
     if value.zone_shown {
         let info = zdt.time_zone().to_offset_info(zdt.timestamp());
@@ -258,11 +293,33 @@ fn month_number(word: &str) -> Option<i8> {
         "november",
         "december",
     ];
+    // Indonesian names, accepted whatever the interface language.
+    const FULL_ID: &[&str] = &[
+        "januari",
+        "februari",
+        "maret",
+        "april",
+        "mei",
+        "juni",
+        "juli",
+        "agustus",
+        "september",
+        "oktober",
+        "november",
+        "desember",
+    ];
     let index = MONTHS
         .iter()
         .position(|m| *m == word)
         .or_else(|| FULL.iter().position(|m| *m == word))
-        .or_else(|| (word == "sept").then_some(8))?;
+        .or_else(|| FULL_ID.iter().position(|m| *m == word))
+        .or(match word {
+            "sept" => Some(8),
+            "agu" | "agt" => Some(7),
+            "okt" => Some(9),
+            "des" => Some(11),
+            _ => None,
+        })?;
     i8::try_from(index + 1).ok()
 }
 
@@ -689,7 +746,7 @@ mod tests {
         let now = now();
         evaluate(expr, &now, &DateState::default()).map(|r| {
             r.map(|e| match e.outcome {
-                Outcome::Value(v) => format(&v, &now).0,
+                Outcome::Value(v) => format(&v, &now, Language::En).0,
                 Outcome::Fend(f) => format!("fend: {f}"),
             })
         })
@@ -793,7 +850,7 @@ mod tests {
         let Outcome::Value(v) = r.outcome else {
             panic!()
         };
-        assert_eq!(format(&v, &now).0, "Fri, 1 Jan 2027");
+        assert_eq!(format(&v, &now, Language::En).0, "Fri, 1 Jan 2027");
     }
 
     #[test]
@@ -809,13 +866,13 @@ mod tests {
         let Outcome::Value(v) = r.outcome else {
             panic!()
         };
-        assert_eq!(format(&v, &now).0, "Sun, 8 Mar 2026 09:00");
+        assert_eq!(format(&v, &now, Language::En).0, "Sun, 8 Mar 2026 09:00");
         let r = evaluate("now + 24 hours", &now, &DateState::default())
             .unwrap()
             .unwrap();
         let Outcome::Value(v) = r.outcome else {
             panic!()
         };
-        assert_eq!(format(&v, &now).0, "Sun, 8 Mar 2026 10:00");
+        assert_eq!(format(&v, &now, Language::En).0, "Sun, 8 Mar 2026 10:00");
     }
 }

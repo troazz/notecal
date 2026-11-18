@@ -102,10 +102,21 @@ fn load_environment(dirs: &SystemDirs) -> Environment {
         eprintln!("notecal-cli: {problem}");
     }
     Environment {
-        settings: view.settings.engine(&definitions),
+        settings: view
+            .settings
+            .engine(&definitions, ui_language(&view.settings)),
         rates: RatesStore::load(paths::rates_path(&dirs.cache)).rates(),
         notes_dir: paths::resolve_notes_dir(&view.settings, &dirs.data),
     }
+}
+
+/// The interface language: the setting, or the terminal's locale when `auto`.
+fn ui_language(settings: &settings::AppSettings) -> settings::UiLanguage {
+    let system = ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .iter()
+        .filter_map(|name| std::env::var(name).ok())
+        .find(|value| !value.is_empty());
+    settings.language.resolve(system.as_deref())
 }
 
 fn read_note(notes_dir: &Path, name: &str) -> Result<String, String> {

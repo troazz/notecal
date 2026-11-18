@@ -199,4 +199,4 @@ cargo bench -p notecal-core -- --quick
 ## Decisions (2026-11-18)
 
 - **Release:** 1.0.0 ships after M6–M10 are done. The early `v1.0.0` tag and its draft release were deleted. The rc tags stay as build checks. Milestones are not released one by one.
-- **Weekday and month names:** English by default. M9 can localize them.
+- **Weekday and month names:** English by default. Localized after M9 at the author's request: date results follow the interface language (`Rab, 25 Des 2026`), copies stay ISO, and Indonesian month names are accepted as input. `notecal-cli` follows the setting, or the terminal's `LANG` when `auto`.

@@ -104,6 +104,23 @@ now + 24 hours => Sun, 25 Oct 2026 11:00
 25 Dec - today in weeks => 5,285714 weeks
 today => Wed, 18 Nov 2026
 ---
+;; Weekday and month names in Indonesian (interface language); copy stays ISO
+@language id
+today => Rab, 18 Nov 2026 || 2026-11-18
+tomorrow => Kam, 19 Nov 2026
+2026-12-25 => Jum, 25 Des 2026
+2027-05-01 => Sab, 1 Mei 2027
+2026-08-17 => Sen, 17 Agu 2026
+2026-10-11 => Min, 11 Okt 2026
+tomorrow 9am => Kam, 19 Nov 2026 09:00
+now in New York => Sel 22:00 EST
+---
+;; Indonesian month names are accepted as input in any language
+25 Desember => Fri, 25 Dec 2026
+17 Agustus 2026 => Mon, 17 Aug 2026
+Mei 1, 2027 => Sat, 1 May 2027
+1 okt 2026 => Thu, 1 Oct 2026
+---
 ;; Errors: no result
 now in Atlantis
 today + 5 kg

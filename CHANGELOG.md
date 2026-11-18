@@ -14,7 +14,7 @@ First release.
 - `en` and `id` number formats, adjustable precision; a line that takes too long is stopped without blocking the editor.
 
 ### Interface
-- English and Indonesian, chosen in Settings or following the system language (`language = "auto"`); the tray menu, notices and error hover text follow it. Weekday and month names stay English.
+- English and Indonesian, chosen in Settings or following the system language (`language = "auto"`); the tray menu, notices, error hover text and the weekday and month names in date results (`Rab, 25 Des 2026`) follow it. Indonesian month names are accepted as input (`17 Agustus 2026`).
 
 ### Command line
 - `notecal-cli`: evaluate an expression, a piped note or a saved note (`--note NAME`) from the terminal, with the app's settings, definitions and cached rates; `--copy` prints bare numbers. Installed with the Arch package.
