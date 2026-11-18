@@ -98,6 +98,14 @@
     if (selected >= rows.length) selected = Math.max(0, rows.length - 1);
   });
 
+  // Keep the selected row in view when moving with the arrow keys (long
+  // lists such as the cheatsheet scroll).
+  $effect(() => {
+    const id = `note-row-${selected}`;
+    void rows.length;
+    tick().then(() => document.getElementById(id)?.scrollIntoView({ block: "nearest" }));
+  });
+
   async function refresh() {
     try {
       notes = await notesApi.list();
