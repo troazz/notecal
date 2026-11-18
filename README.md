@@ -38,7 +38,11 @@ Download the AppImage from [Releases](https://github.com/troazz/notecal/releases
 
 ### macOS
 
-Download the `.dmg` from [Releases](https://github.com/troazz/notecal/releases) and drag notecal to Applications. The app is not signed yet, so the first time, right-click it and choose **Open** (or run `xattr -d com.apple.quarantine /Applications/notecal.app`).
+```sh
+brew install --cask troazz/tap/notecal
+```
+
+Or download the `.dmg` from [Releases](https://github.com/troazz/notecal/releases) and drag notecal to Applications. The app is not signed yet, so the first time, right-click it and choose **Open** (or run `xattr -d com.apple.quarantine /Applications/notecal.app`).
 
 ## Show and hide it with a key
 

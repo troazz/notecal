@@ -1,0 +1,37 @@
+# Homebrew cask for notecal, published in github.com/troazz/homebrew-tap as
+# Casks/notecal.rb. Generated per release by packaging/homebrew/update-cask.sh:
+# change this template, not the generated file.
+cask "notecal" do
+  version "@VERSION@"
+  sha256 "@SHA256@"
+
+  url "https://github.com/troazz/notecal/releases/download/v#{version}/notecal_#{version}_universal.dmg"
+  name "notecal"
+  desc "Calculator notepad: natural math with live results, units and currency"
+  homepage "https://github.com/troazz/notecal"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  depends_on macos: ">= :big_sur"
+
+  app "notecal.app"
+
+  zap trash: [
+    "~/Library/Application Support/notecal",
+    "~/Library/Caches/notecal",
+    "~/Library/Caches/com.troazz.notecal",
+    "~/Library/Preferences/com.troazz.notecal.plist",
+    "~/Library/Saved Application State/com.troazz.notecal.savedState",
+    "~/Library/WebKit/com.troazz.notecal",
+  ]
+
+  caveats <<~EOS
+    notecal is not notarized by Apple yet, so macOS blocks it the first time
+    you open it. Allow it once in System Settings › Privacy & Security ›
+    Open Anyway, or run:
+      xattr -dr com.apple.quarantine #{appdir}/notecal.app
+  EOS
+end

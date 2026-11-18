@@ -51,8 +51,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          projectPath: ui
-          tauriScript: bun run tauri
+          # src-tauri/ is at the repo root; the CLI is installed under ui/.
+          tauriScript: ui/node_modules/.bin/tauri
           args: ${{ matrix.args }}
           tagName: ${{ github.ref_name }}
           releaseName: notecal ${{ github.ref_name }}
