@@ -196,7 +196,8 @@ fn main() {
                 .clone();
             tauri::WebviewWindowBuilder::from_config(app.handle(), &window_config)?.build()?;
             shell::apply_window_settings(app.handle(), &current);
-            match shell::create_tray(app.handle()) {
+            let language = app.state::<SettingsState>().ui_language();
+            match shell::create_tray(app.handle(), language) {
                 Ok(()) => app.state::<shell::TrayState>().set_available(),
                 // No tray host or no appindicator library: not fatal.
                 Err(e) => eprintln!("notecal: no tray icon: {e}"),
@@ -219,6 +220,7 @@ fn main() {
             commands::get_settings,
             commands::save_settings,
             shell::shortcut_status,
+            commands::ui_language,
             shell::quit,
             shell::tray_available,
             shell::cancel_quit,

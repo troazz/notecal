@@ -72,6 +72,7 @@ Notes are plain text. Pointing `notes_dir` at a Syncthing or git folder is suppo
 `~/.config/notecal/settings.toml`. Every key is optional; changes apply as soon as the file is saved. A bad value is reported and replaced by its default.
 
 ```toml
+language = "auto"        # auto (follows the system) | en | id
 shortcut = "Alt+Space"   # X11/macOS only; on Wayland bind `notecal --toggle`
 theme = "auto"           # auto (Omarchy, else system) | light | dark | a file in ~/.config/notecal/themes/
 font_family = "auto"     # auto = system monospace font (follows Omarchy's font)

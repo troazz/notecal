@@ -11,7 +11,7 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
-use crate::settings::AppSettings;
+use crate::settings::{AppSettings, UiLanguage};
 
 pub const TOGGLE_FLAG: &str = "--toggle";
 
@@ -124,12 +124,32 @@ pub const QUIT_REQUESTED: &str = "quit-requested";
 /// Quit anyway if the UI does not answer (e.g. it is stuck).
 const QUIT_GRACE: Duration = Duration::from_secs(3);
 
+/// The tray menu in the interface language (PRD M9).
+fn tray_menu(app: &AppHandle, language: UiLanguage) -> tauri::Result<Menu<tauri::Wry>> {
+    let (toggle, quit) = match language {
+        UiLanguage::En => ("Show / Hide notecal", "Quit notecal"),
+        UiLanguage::Id => ("Tampilkan / Sembunyikan notecal", "Keluar dari notecal"),
+    };
+    let toggle_item = MenuItem::with_id(app, "toggle", toggle, true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", quit, true, None::<&str>)?;
+    Menu::with_items(app, &[&toggle_item, &quit_item])
+}
+
+/// Relabels the tray menu after a language change.
+pub fn set_tray_language(app: &AppHandle, language: UiLanguage) {
+    let Some(tray) = app.tray_by_id("main") else {
+        return;
+    };
+    let result = tray_menu(app, language).and_then(|menu| tray.set_menu(Some(menu)));
+    if let Err(e) = result {
+        eprintln!("notecal: could not relabel the tray menu: {e}");
+    }
+}
+
 /// Tray icon with Show/Hide and Quit (PRD A3). Without a tray host the icon
 /// simply does not appear; `notecal --toggle` still works.
-pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
-    let toggle_item = MenuItem::with_id(app, "toggle", "Show / Hide notecal", true, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit notecal", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&toggle_item, &quit_item])?;
+pub fn create_tray(app: &AppHandle, language: UiLanguage) -> tauri::Result<()> {
+    let menu = tray_menu(app, language)?;
     let mut tray = TrayIconBuilder::with_id("main")
         .tooltip("notecal")
         .menu(&menu)
