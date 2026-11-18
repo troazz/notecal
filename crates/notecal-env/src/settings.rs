@@ -363,7 +363,13 @@ mod tests {
             assert_eq!(view.settings, AppSettings::default(), "{bad}");
             assert_eq!(view.problems.len(), 1, "{bad}");
         }
-        let ok = parse("notes_dir = \"/home/me/Notes\"\ntheme = \"my theme\"");
+        // An absolute path on this platform (Windows needs a drive letter).
+        let absolute = if cfg!(windows) {
+            r"C:\Users\me\Notes"
+        } else {
+            "/home/me/Notes"
+        };
+        let ok = parse(&format!("notes_dir = '{absolute}'\ntheme = \"my theme\""));
         assert!(ok.problems.is_empty());
     }
 
@@ -383,7 +389,7 @@ mod tests {
             font_family: "JetBrains Mono".into(),
             precision: 3,
             locale: Locale::Id,
-            notes_dir: "/tmp/notes".into(),
+            notes_dir: dir.path().join("notes").to_string_lossy().into_owned(),
             currency_refresh: false,
             ..AppSettings::default()
         };
