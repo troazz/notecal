@@ -197,6 +197,13 @@ cargo bench -p notecal-core -- --quick
 > - iCloud: `.Name.txt.icloud` placeholders are listed as notes and downloaded with `brctl` on open.
 >
 > CI on Windows is the only test. The `brctl` path is untested (no Mac).
+
+> **Done (2026-11-18).**
+> - **CI:** green on Linux, Windows and UI. Windows found four test assumptions: a `:` file name, a case-insensitive create, and two Unix-only absolute paths.
+> - **Release test `v1.0.0-rc.4`:** all three bundles built: `.dmg` 9.6 MB (with `notecal-cli`), Windows setup 3.6 MB (with `notecal-cli.exe`), AppImage 79.7 MB.
+> - **rc.3 failed on macOS:** a universal build needs per-architecture `notecal-cli` copies as well as the fat one.
+> - **Drafts:** the rc.3 and rc.4 drafts were deleted.
+> - **Not tested:** by hand on Windows, and `brctl` iCloud downloads.
 - **CI:** add `windows-latest` to `ci.yml` (Rust and UI tests) and to `release.yml` (NSIS installer, size check). A winget/Scoop manifest comes later.
 - **Code:**
   - Windows paths come from the `dirs`-based locations, so they should mostly work already.
