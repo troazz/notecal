@@ -60,6 +60,11 @@ const en = {
   "app.dismiss": "Dismiss",
   "app.copy": "Copy",
 
+  "status.live": "live",
+  "status.liveTitle": "Results with now or today update every minute",
+  "status.localeTitle": "Number format (click to switch)",
+  "status.languageTitle": "Interface language (click to switch)",
+
   "results.copied": "Copied",
   "results.copyFailed": "Could not copy the result",
   "results.none": "No result on this line",
@@ -125,6 +130,11 @@ const id: Record<Key, string> = {
   "app.ratesNone": "belum ada",
   "app.dismiss": "Tutup",
   "app.copy": "Salin",
+
+  "status.live": "langsung",
+  "status.liveTitle": "Hasil dengan now atau today diperbarui setiap menit",
+  "status.localeTitle": "Format angka (klik untuk mengganti)",
+  "status.languageTitle": "Bahasa antarmuka (klik untuk mengganti)",
 
   "results.copied": "Disalin",
   "results.copyFailed": "Hasil tidak dapat disalin",
