@@ -106,7 +106,6 @@ Tests: `cargo test --workspace` and `cd ui && bun run test`.
 - Calculations by [fend](https://github.com/printfn/fend)
 - Exchange rates by [Exchange Rate API](https://www.exchangerate-api.com) (open.er-api.com)
 - Built with [Tauri](https://tauri.app), [Svelte](https://svelte.dev) and [CodeMirror](https://codemirror.net)
-- Inspired by Numi
 
 ## License
 

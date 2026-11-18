@@ -6,7 +6,7 @@
 
 ## Summary
 
-Build `crates/notecal-core`: a pure Rust library that takes a whole note and returns one result per line. It wraps fend-core 1.5.9 and adds a small preprocessor for Numi syntax: percentages, `prev`/`sum`/`total`/`avg`, comments and headers, locale separators, and display formatting. It covers C1–C8, C10, C12 and C13 plus the PRD's Language rules. The milestone is done when ≥ 150 golden cases pass, a property test shows no input panics or hangs, and criterion benches meet the engine budgets (≤ 200 µs per line median, ≤ 15 ms per uncached 200-line note, ≤ 2 ms to re-evaluate after editing the last line). Budgets were revised after the Task 2 spike.
+Build `crates/notecal-core`: a pure Rust library that takes a whole note and returns one result per line. It wraps fend-core 1.5.9 and adds a small preprocessor for notecal's syntax: percentages, `prev`/`sum`/`total`/`avg`, comments and headers, locale separators, and display formatting. It covers C1–C8, C10, C12 and C13 plus the PRD's Language rules. The milestone is done when ≥ 150 golden cases pass, a property test shows no input panics or hangs, and criterion benches meet the engine budgets (≤ 200 µs per line median, ≤ 15 ms per uncached 200-line note, ≤ 2 ms to re-evaluate after editing the last line). Budgets were revised after the Task 2 spike.
 
 ## Requirements restated
 

@@ -1,4 +1,4 @@
-;; C4 percentages, Numi semantics
+;; C4 percentages, natural-language semantics
 20% of 50 => 10
 50 + 10% => 55
 50 - 10% => 45

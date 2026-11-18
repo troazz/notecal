@@ -1,14 +1,14 @@
-# PRD: notecal — a Numi-style calculator notepad (Tauri + Svelte + Rust)
+# PRD: notecal — a calculator notepad (Tauri + Svelte + Rust)
 
 Nov 5, 2026 · @Puas Citro · Revision 2 (see [Changes from revision 1](#changes-from-revision-1))
 
 ## Overview
 
-notecal is a lightweight calculator notepad for macOS and Arch Linux. Each line holds natural math, and its result appears right-aligned on the same line as you type. It is inspired by Numi, which is macOS-only, and runs natively on both of the author's daily systems.
+notecal is a lightweight calculator notepad for macOS and Arch Linux. Each line holds natural math, and its result appears right-aligned on the same line as you type. It runs natively on both of the author's daily systems.
 
 The stack is Tauri 2 for the shell, Svelte 5 for the UI, CodeMirror 6 for the editor, and a Rust engine (`notecal-core`) built on fend-core for evaluation. notecal is open source.
 
-**Problem.** Quick everyday math with units, currencies, percentages and running totals is awkward in a regular calculator. Spreadsheets are too heavy for it. Numi solves this well but does not run on Linux. Numara is the main Electron alternative, and it ships 100 MB+ with a full Chromium runtime.
+**Problem.** Quick everyday math with units, currencies, percentages and running totals is awkward in a regular calculator. Spreadsheets are too heavy for it. The best-known apps for it are macOS-only. Numara is the main Electron alternative, and it ships 100 MB+ with a full Chromium runtime.
 
 ## Goals and non-goals
 
@@ -18,7 +18,7 @@ The v1.0 goal is a scratchpad that opens instantly and feels native. It should r
 
 - Instant results: results update as you type, with no Enter key and no submit step.
 - Light and fast: a small package, low idle RAM, and near-instant cold start (see Non-functional requirements).
-- Numi-like expressiveness: units, currency, percentages, variables, references to previous lines, and totals.
+- Natural-language expressiveness: units, currency, percentages, variables, references to previous lines, and totals.
 - Keyboard-first: a hotkey to summon or hide the app, and every action reachable without a mouse.
 - Plain-text notes: notes stay readable and editable outside the app, including in synced folders.
 
@@ -33,7 +33,7 @@ The v1.0 goal is a scratchpad that opens instantly and feels native. It should r
 
 ## Target users and platforms
 
-The primary user is a developer who works on both macOS and Arch Linux (Hyprland, Wayland) and wants the same scratchpad on each machine. The secondary audience is the open-source Linux community, which has no polished Numi equivalent.
+The primary user is a developer who works on both macOS and Arch Linux (Hyprland, Wayland) and wants the same scratchpad on each machine. The secondary audience is the open-source Linux community, which has no polished equivalent.
 
 | Platform | Target | Webview | Distribution |
 | --- | --- | --- | --- |
@@ -84,7 +84,7 @@ Priority key: **P0** must be in v1.0, **P1** should be in v1.0, and **P2** comes
 | C1 | Arithmetic: `+ - * / ^ mod`, parentheses, and implicit multiplication (`2(3+4)`) | P0 |
 | C2 | Arbitrary-precision decimals, so `0.1 + 0.2` gives `0.3` | P0 |
 | C3 | Units and conversion with `in`/`to`: length, mass, volume, time, temperature, data size, speed, area | P0 |
-| C4 | Percentages with Numi semantics (see [Language rules](#language-rules)) | P0 |
+| C4 | Percentages with natural-language semantics (see [Language rules](#language-rules)) | P0 |
 | C5 | Variables: `name = expr`, usable on any later line of the same note | P0 |
 | C6 | Line references: `prev`, `sum`/`total`, and `avg` (see [Language rules](#language-rules)) | P0 |
 | C7 | Comments (`#`, `//`) and headers; a line that does not evaluate shows no result, never an error inline | P0 |
@@ -99,7 +99,7 @@ Priority key: **P0** must be in v1.0, **P1** should be in v1.0, and **P2** comes
 
 These rules are normative. Each one gets golden test cases.
 
-**Percentages (C4)** follow Numi, not fend's plain `% = /100` reading:
+**Percentages (C4)** follow everyday usage, not fend's plain `% = /100` reading:
 
 | Input | Result |
 | --- | --- |
@@ -212,7 +212,7 @@ The Rust process owns all logic. The Svelte webview is a thin editor: it sends t
 │ src-tauri: commands, plugins, storage, rate fetcher              │
 │   evaluate → worker thread → notecal-core (catch_unwind)         │
 ├──────────────────────────────────────────────────────────────────┤
-│ notecal-core: preprocessor (Numi syntax, locale) → fend-core     │
+│ notecal-core: preprocessor (notecal syntax, locale) → fend-core  │
 │   per-line cache, variables, prev/sum/avg, interrupt (C13)       │
 └──────────────────────────────┬───────────────────────────────────┘
                                │
@@ -302,6 +302,11 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 | 3 | Notes and editor (~2 w) | N1–N5, E1–E6 (E5, E7–E9 if time allows); notes are safe under Syncthing | complete | `.claude/plans/m3-notes-editor.plan.md` |
 | 4 | App shell and currency (~1.5 w) | A1, A2, A3–A6, C9 with cached offline rates | complete | `.claude/plans/m4-app-shell-currency.plan.md` |
 | 5 | Release + Gate 2 (~1.5 w) | CI builds `.dmg`, AppImage and AUR inputs with size checks; ≥ 300 golden cases; v1.0 tagged | in-progress | `.claude/plans/m5-release-gate2.plan.md` |
+| 6 | Dates and time zones (~2 w) | C11: `today`/`now`, calendar date arithmetic, date differences, time zone conversion by IANA name, city or abbreviation; time-dependent lines refresh | in-progress | `.claude/plans/m6-dates-timezones.plan.md` |
+| 7 | CSS units and custom definitions (~1 w) | `px`/`pt`/`em`/`rem` (CSS meaning wins) with PPI and em settings; `definitions.txt` loaded before every note | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
+| 8 | Command-line tool (~1 w) | A7: `notecal-cli` for expressions and whole notes, sharing settings, rates cache and definitions; launcher examples; packaged for AUR inputs and the cask | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
+| 9 | UI languages (~1 w) | Interface strings in a catalog; English and Indonesian; `language = "auto"` | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
+| 10 | Windows and iCloud Drive (~2 w) | Windows build, tests and installer in CI; Windows-safe saves; iCloud Drive notes folder on macOS | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
 
 **Gate 1 (end of M2): WebKitGTK on Arch.** This is the biggest risk, so it is checked before investing in features. Measure on the author's Arch/Hyprland machine: keystroke-to-results p95 on a 200-line note, cold start, and idle RAM. Result: **passed on Arch** (`docs/gate1.md`). The macOS measurement was deferred by the author to focus on Linux; WKWebView is the lower-risk platform and is measured at Gate 2.
 
@@ -318,7 +323,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 | --- | --- | --- |
 | WebKitGTK is slow or glitchy on some Wayland/GPU setups | Typing lag on Arch | Gate 1 at end of M2; workaround flags; the engine stays UI-agnostic, so an iced frontend remains an option |
 | WebKitGTK cold start and memory exceed the macOS-level budgets | Linux misses "light and fast" | Linux targets are set from Gate 1 measurements, not assumed |
-| fend-core syntax differs from Numi's (`prev`, `sum`, `% of`, `50 + 10%`) | Expressions feel wrong | Preprocessing layer rewrites Numi syntax before fend; the percent and reference rules are golden-tested in the first week of M1 |
+| fend-core syntax differs from notecal's (`prev`, `sum`, `% of`, `50 + 10%`) | Expressions feel wrong | Preprocessing layer rewrites notecal syntax before fend; the percent and reference rules are golden-tested in the first week of M1 |
 | fend-core is slow (~120 µs per line, measured in M1) | Typing lag on long notes | Per-line cache limits re-evaluation to changed lines and their dependants; budgets set from measurement |
 | Pathological input (`10^10^10`, huge factorials) | CPU or memory spike, frozen results | Per-line interrupt (C13), evaluation off the UI thread, fuzz test |
 | Global hotkeys do not work on Wayland | No system-wide hotkey on Hyprland | `notecal --toggle` (A2) is P0; docs show the Hyprland, Sway and GNOME bindings |

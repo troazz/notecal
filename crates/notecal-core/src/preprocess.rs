@@ -1,4 +1,4 @@
-//! Rewrites Numi-style syntax into expressions fend-core understands.
+//! Rewrites notecal's natural-language syntax into expressions fend-core understands.
 //!
 //! fend already handles arithmetic, units, number bases, `20% of 50`,
 //! variables and thousands separators (see the Task 2 findings in the M1

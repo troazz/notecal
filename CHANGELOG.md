@@ -6,7 +6,7 @@ First release.
 
 ### Calculation
 - Natural math per line with arbitrary precision (fend), units and conversions, hex/binary/octal, math functions and constants.
-- Numi-style percentages (`20% of 50`, `50 + 10%`, `5 as % of 20`), variables, `prev`, and block totals with `sum`/`total`/`avg`.
+- Natural-language percentages (`20% of 50`, `50 + 10%`, `5 as % of 20`), variables, `prev`, and block totals with `sum`/`total`/`avg`.
 - Currency conversion with daily rates from open.er-api.com, cached for offline use.
 - `en` and `id` number formats, adjustable precision; a line that takes too long is stopped without blocking the editor.
 
