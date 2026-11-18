@@ -27,3 +27,6 @@ src-tauri/gen/
 
 # Agent run output (scripts/agents.sh)
 .agent-review.md
+
+# notecal-cli copied in by the release workflow for macOS and Windows bundles
+src-tauri/binaries/

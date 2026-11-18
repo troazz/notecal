@@ -24,10 +24,50 @@ pub fn write_atomic(dir: &Path, path: &Path, text: &str) -> io::Result<()> {
             .open(&temp)?;
         file.write_all(text.as_bytes())?;
         file.sync_all()?;
-        fs::rename(&temp, path)
+        drop(file);
+        rename_with_retry(&temp, path)
     })();
     if result.is_err() {
         let _ = fs::remove_file(&temp);
     }
     result
+}
+
+/// Renames `from` over `to`. On Windows, replacing a file fails while another
+/// program (a sync client, an antivirus scanner) briefly has it open, so a
+/// refused rename is retried for about half a second.
+fn rename_with_retry(from: &Path, to: &Path) -> io::Result<()> {
+    let mut delay_ms = 10;
+    loop {
+        match fs::rename(from, to) {
+            Err(e)
+                if cfg!(windows)
+                    && e.kind() == io::ErrorKind::PermissionDenied
+                    && delay_ms <= 160 =>
+            {
+                std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                delay_ms *= 2;
+            }
+            result => return result,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn writes_and_replaces_without_leaving_temp_files() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("note.txt");
+        write_atomic(dir.path(), &path, "one").unwrap();
+        write_atomic(dir.path(), &path, "two").unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "two");
+        let names: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(names, ["note.txt"]);
+    }
 }
