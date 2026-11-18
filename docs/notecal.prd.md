@@ -306,7 +306,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 | 6 | Dates and time zones (~2 w) | C11: `today`/`now`, calendar date arithmetic, date differences, time zone conversion by IANA name, city or abbreviation; time-dependent lines refresh | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 7 | CSS units and custom definitions (~1 w) | `px`/`pt`/`em`/`rem` (CSS meaning wins) with PPI and em settings; `definitions.txt` loaded before every note | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 8 | Command-line tool (~1 w) | A7: `notecal-cli` for expressions and whole notes, sharing settings, rates cache and definitions; launcher examples; packaged for AUR inputs and the cask | complete | `.claude/plans/m6-dates-timezones.plan.md` |
-| 9 | UI languages (~1 w) | Interface strings in a catalog; English and Indonesian; `language = "auto"` | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
+| 9 | UI languages (~1 w) | Interface strings in a catalog; English and Indonesian; `language = "auto"` | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 10 | Windows and iCloud Drive (~2 w) | Windows build, tests and installer in CI; Windows-safe saves; iCloud Drive notes folder on macOS | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
 
 **Gate 1 (end of M2): WebKitGTK on Arch.** This is the biggest risk, so it is checked before investing in features. Measure on the author's Arch/Hyprland machine: keystroke-to-results p95 on a 200-line note, cold start, and idle RAM. Result: **passed on Arch** (`docs/gate1.md`). The macOS measurement was deferred by the author to focus on Linux; WKWebView is the lower-risk platform and is measured at Gate 2.

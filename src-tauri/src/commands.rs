@@ -11,7 +11,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::evaluator::Evaluator;
 use crate::notes::{DiskChange, NoteInfo, NoteStore, SaveOutcome};
 use crate::rates::{self, Fetch, RatesStatus, RatesStore};
-use crate::settings::{self, AppSettings, SettingsView};
+use crate::settings::{self, AppSettings, SettingsView, UiLanguage};
 use crate::state::{self, UiState};
 use crate::theme::{self, Theme};
 use crate::watch::{self, Watch};
@@ -208,6 +208,14 @@ impl SettingsState {
             .clone()
     }
 
+    /// The interface language: the setting, or the system's when `auto`.
+    pub fn ui_language(&self) -> UiLanguage {
+        self.view()
+            .settings
+            .language
+            .resolve(sys_locale::get_locale().as_deref())
+    }
+
     /// Engine settings: the user's settings plus their definitions.
     pub fn engine(&self) -> notecal_core::Settings {
         self.view().settings.engine(&self.definitions())
@@ -252,6 +260,9 @@ impl SettingsState {
         crate::shell::apply_window_settings(app, &view.settings);
         if old.settings.theme != view.settings.theme {
             app.state::<ThemeSource>().emit_current(app);
+        }
+        if old.settings.language != view.settings.language {
+            crate::shell::set_tray_language(app, self.ui_language());
         }
         emit(app, settings::SETTINGS_CHANGED, view);
     }
@@ -375,6 +386,12 @@ fn relocate_notes(app: &AppHandle, settings: &AppSettings) -> Result<(), String>
 #[tauri::command]
 pub fn get_settings(state: State<'_, SettingsState>) -> SettingsView {
     state.view()
+}
+
+/// The interface language to show (`en` or `id`).
+#[tauri::command]
+pub fn ui_language(state: State<'_, SettingsState>) -> UiLanguage {
+    state.ui_language()
 }
 
 #[tauri::command]

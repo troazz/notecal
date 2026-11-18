@@ -10,6 +10,7 @@
   import { settingsApi, type AppSettings, type SettingsView } from "./settings/api";
   import { NoteSession } from "./notes/session";
   import { KeystrokeTimer } from "./editor/perf";
+  import { setLanguage, t, translateMessage, type Language } from "./i18n.svelte";
 
   const timer = new KeystrokeTimer();
   let showStats = $state(false);
@@ -60,7 +61,24 @@
   });
 
   function report(message: string) {
-    notice = message;
+    notice = translateMessage(message);
+  }
+
+  /** M9: the interface language, from the setting or the system. */
+  function applyLanguage() {
+    invoke<Language>("ui_language")
+      .then((language) => {
+        setLanguage(language);
+        document.documentElement.lang = language;
+        // The "Copied" flash is drawn by CSS (editor/results.ts).
+        document.documentElement.style.setProperty(
+          "--copied-label",
+          JSON.stringify(t("results.copied")),
+        );
+        // Error hover text is translated when results are drawn.
+        editor?.reevaluate();
+      })
+      .catch((error: unknown) => console.error("ui_language failed", error));
   }
 
   function onEditorReady(controller: EditorController) {
@@ -149,7 +167,8 @@
 
   /** Applies settings that live in the UI, and reports file problems. */
   function applySettings(view: SettingsView) {
-    if (view.problems.length) report(`settings.toml: ${view.problems.join(" ")}`);
+    applyLanguage();
+    if (view.problems.length) report(`settings.toml: ${view.problems.map(translateMessage).join(" ")}`);
     applyFont(view.settings);
     // Locale and precision are applied by the backend; results need a refresh.
     editor?.reevaluate();
@@ -189,13 +208,16 @@
 
   onMount(() => {
     const appWindow = getCurrentWindow();
+    applyLanguage();
     invoke<{ date: string | null }>("rates_status")
       .then((status) => (ratesDate = status.date))
       .catch((error: unknown) => console.error("rates_status failed", error));
     settingsApi
       .get()
       .then((view) => {
-        if (view.problems.length) report(`settings.toml: ${view.problems.join(" ")}`);
+        if (view.problems.length) {
+          report(`settings.toml: ${view.problems.map(translateMessage).join(" ")}`);
+        }
         applyFont(view.settings);
       })
       .catch((error: unknown) => report(String(error)));
@@ -280,7 +302,7 @@
     try {
       const { settings } = await settingsApi.get();
       await settingsApi.save({ ...settings, always_on_top: !settings.always_on_top });
-      report(settings.always_on_top ? "Always on top: off" : "Always on top: on");
+      report(settings.always_on_top ? t("app.alwaysOnTopOff") : t("app.alwaysOnTopOn"));
     } catch (error) {
       report(String(error));
     }
@@ -310,8 +332,8 @@
     }}
   />
   {#if usesCurrency}
-    <div class="status" title="Exchange rates by open.er-api.com">
-      Rates: {ratesDate ?? "none yet"}
+    <div class="status" title={t("app.ratesTitle")}>
+      {t("app.rates", { date: ratesDate ?? t("app.ratesNone") })}
     </div>
   {/if}
   {#if showSwitcher}
@@ -345,13 +367,13 @@
   {#if notice}
     <div class="notice" role="alert">
       <span>{notice}</span>
-      <button type="button" onclick={() => (notice = null)} aria-label="Dismiss">Dismiss</button>
+      <button type="button" onclick={() => (notice = null)}>{t("app.dismiss")}</button>
     </div>
   {/if}
   {#if showStats}
     <aside class="stats" aria-live="polite">
       <span>{statsLine()}</span>
-      <button type="button" onclick={() => navigator.clipboard.writeText(statsLine())}>Copy</button>
+      <button type="button" onclick={() => navigator.clipboard.writeText(statsLine())}>{t("app.copy")}</button>
     </aside>
   {/if}
 </main>

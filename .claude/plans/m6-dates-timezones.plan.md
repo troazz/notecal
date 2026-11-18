@@ -172,6 +172,15 @@ cargo bench -p notecal-core -- --quick
 - **Launchers:** an Omarchy menu extension example (copies the result) and a Raycast script command.
 
 **M9 — UI languages**
+
+> **Done (2026-11-18).**
+> - **Catalog:** `ui/src/i18n.svelte.ts`. The `id` table is typed against the `en` keys, so a missing translation is a compile error. `t()` is reactive, so changing the language re-renders open screens.
+> - **Messages from Rust** (engine hover text, shortcut status, `definitions.txt line N:` problems) are translated in the UI by English-text patterns. The engine and `notecal-cli` stay English; unknown messages, including fend's, are shown as they are.
+> - **Setting:** `language` (`auto`/`en`/`id`) in `notecal-env`; auto resolves through `sys-locale`, and `in_`/`in-` count as Indonesian.
+> - **Tray:** the labels are rebuilt on change through `tray_by_id`.
+> - **"Copied" flash:** uses a CSS variable.
+> - **Checked live:** Settings, the switcher, "Disalin", and the tray labels read over D-Bus, in Indonesian and back to English.
+> - **Not translated:** the app's rare Rust error notices (save, rename and settings-file failures), and the stats overlay.
 - **Catalog:** `ui/src/i18n/{en,id}.ts` with typed keys, and every UI string moved into it. The tray menu labels in `shell.rs` get a matching Rust table.
 - **Setting:** `language = "auto" | "en" | "id"`, where auto follows `LANG` or the macOS preference.
 - **Engine messages:** notecal's own messages are translated. fend's errors stay English, and that's documented.

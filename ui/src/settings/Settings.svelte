@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { settingsApi, type AppSettings } from "./api";
+  import { t, translateMessage } from "../i18n.svelte";
 
   let {
     onsave,
@@ -127,24 +128,37 @@
     bind:this={dialog}
     onkeydown={onKeydown}
   >
-    <h2 id="settings-title">Settings</h2>
+    <h2 id="settings-title">{t("settings.title")}</h2>
     {#if problems.length}
       <ul class="problems" role="alert">
-        {#each problems as problem (problem)}<li>{problem}</li>{/each}
+        {#each problems as problem (problem)}<li>{translateMessage(problem)}</li>{/each}
       </ul>
     {/if}
     {#if settings}
       <div class="grid">
-        <label for="s-theme">Theme</label>
+        <label for="s-language">{t("settings.language")}</label>
+        <select
+          id="s-language"
+          data-key="language"
+          value={settings.language}
+          onchange={(e) =>
+            void update({ language: textFrom(e) as AppSettings["language"] }, e.currentTarget)}
+        >
+          <option value="auto">{t("settings.languageAuto")}</option>
+          <option value="en">English</option>
+          <option value="id">Bahasa Indonesia</option>
+        </select>
+
+        <label for="s-theme">{t("settings.theme")}</label>
         <select id="s-theme"
           data-key="theme" value={settings.theme} onchange={(e) => void update({ theme: textFrom(e) }, e.currentTarget)}>
-          <option value="auto">Auto (Omarchy, else system)</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
+          <option value="auto">{t("settings.themeAuto")}</option>
+          <option value="light">{t("settings.themeLight")}</option>
+          <option value="dark">{t("settings.themeDark")}</option>
           {#each themes as name (name)}<option value={name}>{name}</option>{/each}
         </select>
 
-        <label for="s-font">Font</label>
+        <label for="s-font">{t("settings.font")}</label>
         <input
           id="s-font"
           data-key="font_family"
@@ -153,7 +167,7 @@
           onchange={(e) => void update({ font_family: textFrom(e).trim() || "auto" }, e.currentTarget)}
         />
 
-        <label for="s-size">Font size</label>
+        <label for="s-size">{t("settings.fontSize")}</label>
         <input
           id="s-size"
           data-key="font_size"
@@ -164,7 +178,7 @@
           onchange={(e) => void update({ font_size: numberFrom(e) }, e.currentTarget)}
         />
 
-        <label for="s-precision">Decimal places</label>
+        <label for="s-precision">{t("settings.precision")}</label>
         <input
           id="s-precision"
           data-key="precision"
@@ -175,7 +189,7 @@
           onchange={(e) => void update({ precision: numberFrom(e) }, e.currentTarget)}
         />
 
-        <label for="s-locale">Number format</label>
+        <label for="s-locale">{t("settings.numberFormat")}</label>
         <select
           id="s-locale"
           data-key="locale"
@@ -186,7 +200,7 @@
           <option value="id">1.234,5 (id)</option>
         </select>
 
-        <label for="s-ppi">CSS px per inch</label>
+        <label for="s-ppi">{t("settings.cssPpi")}</label>
         <input
           id="s-ppi"
           data-key="css_ppi"
@@ -197,7 +211,7 @@
           onchange={(e) => void update({ css_ppi: numberFrom(e) }, e.currentTarget)}
         />
 
-        <label for="s-em">CSS px per em/rem</label>
+        <label for="s-em">{t("settings.cssEm")}</label>
         <input
           id="s-em"
           data-key="css_em_px"
@@ -208,16 +222,16 @@
           onchange={(e) => void update({ css_em_px: numberFrom(e) }, e.currentTarget)}
         />
 
-        <label for="s-notes">Notes folder</label>
+        <label for="s-notes">{t("settings.notesDir")}</label>
         <input
           id="s-notes"
           data-key="notes_dir"
           value={settings.notes_dir}
-          placeholder="Default (~/.local/share/notecal/notes)"
+          placeholder={t("settings.notesDirDefault")}
           onchange={(e) => void update({ notes_dir: textFrom(e).trim() }, e.currentTarget)}
         />
 
-        <label for="s-shortcut">Shortcut</label>
+        <label for="s-shortcut">{t("settings.shortcut")}</label>
         <div>
           <input
             id="s-shortcut"
@@ -226,7 +240,7 @@
             value={settings.shortcut}
             onchange={(e) => void update({ shortcut: textFrom(e).trim() || "Alt+Space" }, e.currentTarget)}
           />
-          <p class="hint" id="s-shortcut-status">{shortcutStatus}</p>
+          <p class="hint" id="s-shortcut-status">{translateMessage(shortcutStatus)}</p>
         </div>
 
         <span aria-hidden="true"></span>
@@ -237,7 +251,7 @@
               data-key="always_on_top"
               checked={settings.always_on_top}
               onchange={(e) => void update({ always_on_top: e.currentTarget.checked }, e.currentTarget)}
-            /> Always on top (Ctrl+Shift+T; X11/macOS)</label
+            /> {t("settings.alwaysOnTop")}</label
           >
           <label
             ><input
@@ -245,7 +259,7 @@
               data-key="background"
               checked={settings.background}
               onchange={(e) => void update({ background: e.currentTarget.checked }, e.currentTarget)}
-            /> Keep running in the background when closed</label
+            /> {t("settings.background")}</label
           >
           <label
             ><input
@@ -253,20 +267,19 @@
               data-key="currency_refresh"
               checked={settings.currency_refresh}
               onchange={(e) => void update({ currency_refresh: e.currentTarget.checked }, e.currentTarget)}
-            /> Update exchange rates daily</label
+            /> {t("settings.currencyRefresh")}</label
           >
         </div>
       </div>
     {/if}
     <p class="hint">
-      Your own variables, functions and units go in ~/.config/notecal/definitions.txt (for example
-      <code>vat = 11%</code> or <code>unit sprint = 2 weeks</code>); they apply to every note.
+      {t("settings.definitionsBefore")} <code>vat = 11%</code> {t("settings.or")}
+      <code>unit sprint = 2 weeks</code>. {t("settings.definitionsAfter")}
     </p>
     <p class="hint">
-      Saved to ~/.config/notecal/settings.toml as you change them. Exchange rates by Exchange Rate
-      API (www.exchangerate-api.com, open.er-api.com).
+      {t("settings.saved")}
     </p>
-    <p class="hint">Esc to close</p>
+    <p class="hint">{t("settings.escToClose")}</p>
   </div>
 </div>
 

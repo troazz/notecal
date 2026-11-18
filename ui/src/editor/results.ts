@@ -1,3 +1,4 @@
+import { t, translateMessage } from "../i18n.svelte";
 import { RangeSetBuilder, StateEffect, StateField, type Extension, type Text } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, keymap, type DecorationSet } from "@codemirror/view";
 import type { LineResult } from "./types";
@@ -19,7 +20,7 @@ function build(doc: Text, lines: readonly LineResult[]): DecorationSet {
     } else if (result?.error) {
       // PRD errors rule: no error text in the result column; a marker in
       // the left margin shows the reason on hover.
-      attributes = { "data-error": result.error };
+      attributes = { "data-error": translateMessage(result.error) };
     } else {
       continue;
     }
@@ -146,7 +147,7 @@ function copyResult(view: EditorView, lineStart: number, text: string): void {
       setTimeout(() => view.dispatch({ effects: flashCopied.of(null) }), COPIED_FLASH_MS);
     })
     .catch((error: unknown) => {
-      view.plugin(announcer)?.say("Could not copy the result");
+      view.plugin(announcer)?.say(t("results.copyFailed"));
       console.error("clipboard write failed", error);
     });
 }
@@ -220,7 +221,8 @@ const resultKeys = keymap.of([
       const { attributes } = currentAttributes(view);
       const error = attributes["data-error"];
       view.plugin(announcer)?.say(
-        attributes["data-result"] ?? (error ? `No result: ${error}` : "No result on this line"),
+        attributes["data-result"] ??
+          (error ? t("results.noneBecause", { reason: error }) : t("results.none")),
       );
       return true;
     },
@@ -265,7 +267,8 @@ const resultsTheme = EditorView.baseTheme({
     whiteSpace: "pre",
     pointerEvents: "none",
   },
-  ".cm-line.cm-result-copied::after": { content: '"Copied"' },
+  // The label follows the interface language (App.svelte sets --copied-label).
+  ".cm-line.cm-result-copied::after": { content: 'var(--copied-label, "Copied")' },
   ".cm-line": { position: "relative", paddingLeft: `${ERROR_MARGIN_PX}px` },
   ".cm-line[data-error]::before": {
     content: '"●"',

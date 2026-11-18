@@ -18,6 +18,7 @@ A calculator notepad for Linux and macOS. Write natural math, one expression per
 - Thousands separators in input and output, in `en` (1,234.5) or `id` (1.234,5) format
 - Several notes, saved automatically as `.txt` files; safe with Syncthing or git (it never overwrites a note that changed on disk while you were editing — your version goes to a conflict copy)
 - Follows your Omarchy theme live, or use light, dark or your own palette
+- English and Indonesian interface, following your system language
 
 Conversions — currency, units, time and number bases:
 
@@ -114,6 +115,16 @@ bun run tauri build --no-bundle    # binary: target/release/notecal
 ```
 
 Tests: `cargo test --workspace` and `cd ui && bun run test`.
+
+## Translations
+
+The interface is in English and Indonesian. To add a language:
+- add its table to `ui/src/i18n.svelte.ts`, where a missing key is a type error;
+- add patterns there for the engine's messages;
+- add tray labels in `src-tauri/src/shell.rs`;
+- add an option to `Language` in `crates/notecal-env/src/settings.rs`.
+
+Weekday and month names in date results, and fend's own error messages, stay English.
 
 ## Credits
 

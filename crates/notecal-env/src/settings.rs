@@ -33,8 +33,47 @@ impl From<Locale> for notecal_core::Locale {
     }
 }
 
+/// The interface language; `Auto` follows the system.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Language {
+    Auto,
+    En,
+    Id,
+}
+
+/// A language the interface is translated into.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum UiLanguage {
+    En,
+    Id,
+}
+
+impl Language {
+    /// The language to show, given the system locale (`id-ID`, `en_US.UTF-8`, …).
+    #[must_use]
+    pub fn resolve(self, system_locale: Option<&str>) -> UiLanguage {
+        match self {
+            Language::En => UiLanguage::En,
+            Language::Id => UiLanguage::Id,
+            Language::Auto => {
+                let code = system_locale.unwrap_or("").to_ascii_lowercase();
+                // `in` is the old code for Indonesian, still used by some systems.
+                if code.starts_with("id") || code.starts_with("in_") || code.starts_with("in-") {
+                    UiLanguage::Id
+                } else {
+                    UiLanguage::En
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppSettings {
+    /// Interface language (PRD M9).
+    pub language: Language,
     /// Global shortcut (A1); not used on Wayland, where `notecal --toggle` is bound instead.
     pub shortcut: String,
     /// `auto`, `light`, `dark`, or the name of a file in the themes folder.
@@ -61,6 +100,7 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
+            language: Language::Auto,
             shortcut: "Alt+Space".into(),
             theme: "auto".into(),
             font_family: "auto".into(),
@@ -169,6 +209,12 @@ pub fn parse(text: &str) -> SettingsView {
             "precision" => match small_int(value, &PRECISIONS) {
                 Some(n) => settings.precision = n,
                 None => bad(&mut problems, "a number from 0 to 20"),
+            },
+            "language" => match value.as_str() {
+                Some("auto") => settings.language = Language::Auto,
+                Some("en") => settings.language = Language::En,
+                Some("id") => settings.language = Language::Id,
+                _ => bad(&mut problems, "\"auto\", \"en\" or \"id\""),
             },
             "locale" => match value.as_str() {
                 Some("en") => settings.locale = Locale::En,
@@ -383,5 +429,18 @@ mod tests {
             problems[0].starts_with("definitions.txt line 2:"),
             "{problems:?}"
         );
+    }
+
+    #[test]
+    fn language_follows_the_system_when_auto() {
+        assert_eq!(Language::Auto.resolve(Some("id-ID")), UiLanguage::Id);
+        assert_eq!(Language::Auto.resolve(Some("in_ID.UTF-8")), UiLanguage::Id);
+        assert_eq!(Language::Auto.resolve(Some("en_US.UTF-8")), UiLanguage::En);
+        assert_eq!(Language::Auto.resolve(Some("india")), UiLanguage::En);
+        assert_eq!(Language::Auto.resolve(None), UiLanguage::En);
+        assert_eq!(Language::Id.resolve(Some("en-US")), UiLanguage::Id);
+        let view = parse("language = \"id\"\n");
+        assert_eq!(view.settings.language, Language::Id);
+        assert!(parse("language = \"fr\"\n").problems.len() == 1);
     }
 }

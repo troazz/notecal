@@ -1,3 +1,5 @@
+import { t } from "../i18n.svelte";
+
 /** Mirrors `SaveOutcome` in src-tauri/src/notes.rs. */
 export type SaveOutcome =
   | { kind: "saved" }
@@ -71,7 +73,7 @@ export class NoteSession {
       await this.flush();
     } while (this.generation !== seen);
     if (this.dirty) {
-      throw new Error(`“${this.current}” has unsaved edits that could not be saved.`);
+      throw new Error(t("session.unsaved", { name: this.current ?? "" }));
     }
     const text = await this.deps.open(name);
     this.current = name;
@@ -99,7 +101,7 @@ export class NoteSession {
 
   private enqueue(task: () => Promise<void>): Promise<void> {
     this.queue = this.queue.then(task).catch((error: unknown) => {
-      this.deps.notify(`Something went wrong while saving: ${String(error)}`);
+      this.deps.notify(t("session.saveError", { error: String(error) }));
     });
     return this.queue;
   }
@@ -146,7 +148,7 @@ export class NoteSession {
       outcome = await this.deps.save(name, text, conflictStamp(this.deps.now()));
     } catch (error) {
       this.dirty = true;
-      this.deps.notify(`Could not save “${name}”: ${String(error)}`);
+      this.deps.notify(t("session.saveFailed", { name, error: String(error) }));
       return;
     }
     if (outcome.kind === "conflict" && this.current === name) {
@@ -155,9 +157,7 @@ export class NoteSession {
       this.replace(outcome.diskText);
       this.dirty = false;
       if (latest !== null) await this.deps.save(outcome.copyName, latest, conflictStamp(this.deps.now()));
-      this.deps.notify(
-        `“${name}” was changed outside notecal. Your version was saved as “${outcome.copyName}”.`,
-      );
+      this.deps.notify(t("session.conflict", { name, copy: outcome.copyName }));
     }
   }
 

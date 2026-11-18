@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { notesApi, type NoteInfo } from "./api";
+  import { t } from "../i18n.svelte";
 
   let {
     current,
@@ -164,13 +165,13 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="backdrop" onmousedown={(e) => e.target === e.currentTarget && onclose()}>
-  <div class="switcher" role="dialog" aria-modal="true" aria-label="Notes" tabindex="-1" onkeydown={onKeydown}>
+  <div class="switcher" role="dialog" aria-modal="true" aria-label={t("switcher.notes")} tabindex="-1" onkeydown={onKeydown}>
     <input
       bind:this={input}
       bind:value={query}
       oninput={() => (selected = 0)}
-      placeholder="Find or create a note"
-      aria-label="Find or create a note"
+      placeholder={t("switcher.placeholder")}
+      aria-label={t("switcher.placeholder")}
       role="combobox"
       aria-expanded={rows.length > 0}
       aria-controls="note-list"
@@ -179,7 +180,7 @@
       autocomplete="off"
     />
     <!-- Clicking a row must not take focus from the input. -->
-    <ul id="note-list" role="listbox" aria-label="Notes" onmousedown={(e) => e.preventDefault()}>
+    <ul id="note-list" role="listbox" aria-label={t("switcher.notes")} onmousedown={(e) => e.preventDefault()}>
       {#each rows as row, i (row.kind + row.name)}
         <li
           id="note-row-{i}"
@@ -191,7 +192,7 @@
           onkeydown={() => {}}
         >
           {#if row.kind === "create"}
-            <span class="create">Create “{row.name}”</span>
+            <span class="create">{t("switcher.create", { name: row.name })}</span>
           {:else if renaming?.from === row.name}
             <input
               class="rename"
@@ -199,45 +200,45 @@
               bind:value={renaming.to}
               onblur={() => void commitRename()}
               onclick={(e) => e.stopPropagation()}
-              aria-label="New name for {row.name}"
+              aria-label={t("switcher.newName", { name: row.name })}
               spellcheck="false"
             />
           {:else if confirmDelete === row.name}
-            <span class="confirm">Delete “{row.name}”? Enter to delete, any other key to keep</span>
+            <span class="confirm">{t("switcher.confirmDeleteShort", { name: row.name })}</span>
           {:else}
             <span class="name">{row.name}</span>
-            {#if row.name === current}<span class="tag">open</span>{/if}
+            {#if row.name === current}<span class="tag">{t("switcher.open")}</span>{/if}
             <span class="actions">
               <button
                 type="button"
-                title="Rename (F2)"
+                title={t("switcher.renameTitle")}
                 onclick={(e) => {
                   e.stopPropagation();
                   void startRename(row.name);
-                }}>Rename</button
+                }}>{t("switcher.rename")}</button
               >
               <button
                 type="button"
-                title="Delete (Ctrl+Delete)"
+                title={t("switcher.deleteTitle")}
                 onclick={(e) => {
                   e.stopPropagation();
                   confirmDelete = row.name;
                   input.focus();
-                }}>Delete</button
+                }}>{t("switcher.delete")}</button
               >
             </span>
           {/if}
         </li>
       {:else}
         <li class="empty" role="option" aria-selected="false" aria-disabled="true">
-          Type a name to create a note
+          {t("switcher.empty")}
         </li>
       {/each}
     </ul>
     <p class="sr-only" aria-live="assertive">
-      {confirmDelete ? `Delete “${confirmDelete}”? Press Enter to delete, any other key to keep.` : ""}
+      {confirmDelete ? t("switcher.confirmDelete", { name: confirmDelete }) : ""}
     </p>
-    <p class="hint">Enter open · F2 rename · Ctrl+Delete delete · Esc close</p>
+    <p class="hint">{t("switcher.help")}</p>
   </div>
 </div>
 

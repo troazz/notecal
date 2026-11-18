@@ -3,6 +3,8 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 /** Mirrors `AppSettings` in src-tauri/src/settings.rs (TOML keys, snake_case). */
 export interface AppSettings {
+  /** Interface language; `auto` follows the system. */
+  language: "auto" | "en" | "id";
   shortcut: string;
   theme: string;
   font_family: string;
