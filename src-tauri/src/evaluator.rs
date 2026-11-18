@@ -28,6 +28,21 @@ pub struct EvalResponse {
     pub uses_time: bool,
 }
 
+/// A cheatsheet section for the UI, which translates `id` into a title.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CheatSection {
+    pub id: &'static str,
+    pub examples: Vec<CheatExample>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CheatExample {
+    /// The example as it is inserted into the note (may span lines).
+    pub text: &'static str,
+    /// Its last line's result, or the error if it has none (e.g. no rates yet).
+    pub result: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LineDto {
     pub display: Option<String>,
@@ -105,6 +120,40 @@ impl Evaluator {
             lines: lines.into_iter().map(LineDto::from).collect(),
             uses_currency: mentions_currency(&request.text),
         })
+    }
+
+    /// The cheatsheet (PRD M11): every example with its result under the
+    /// current settings, rates and definitions. Uses its own engines, so the
+    /// open note's cache is untouched.
+    pub fn cheatsheet(&self) -> Vec<CheatSection> {
+        let settings = self
+            .settings
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        let rates = self
+            .rates
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        notecal_core::cheatsheet::SECTIONS
+            .iter()
+            .map(|section| CheatSection {
+                id: section.id,
+                examples: section
+                    .examples
+                    .iter()
+                    .map(|text| {
+                        let results = Engine::default().evaluate(text, &settings, rates.as_ref());
+                        let last = results.last().cloned().unwrap_or_default();
+                        CheatExample {
+                            text,
+                            result: last.display.or(last.error),
+                        }
+                    })
+                    .collect(),
+            })
+            .collect()
     }
 
     fn superseded(&self, version: u64) -> bool {
@@ -203,5 +252,14 @@ mod tests {
     fn engine_can_live_in_tauri_state() {
         fn assert_send_sync<T: Send + Sync + 'static>() {}
         assert_send_sync::<Evaluator>();
+    }
+
+    #[test]
+    fn cheatsheet_has_every_section_with_results() {
+        let sheet = Evaluator::default().cheatsheet();
+        assert_eq!(sheet.len(), notecal_core::cheatsheet::SECTIONS.len());
+        let arithmetic = &sheet[0];
+        assert_eq!(arithmetic.id, "arithmetic");
+        assert_eq!(arithmetic.examples[0].result.as_deref(), Some("14"));
     }
 }

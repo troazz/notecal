@@ -207,6 +207,14 @@ cargo bench -p notecal-core -- --quick
 - **iCloud Drive on macOS:** document a notes folder in iCloud Drive, and handle evicted `.name.txt.icloud` placeholders: list them as notes and download on open (`brctl download`), or show "not downloaded".
 
 **M11 — Cheatsheet in Ctrl+P** (requested 2026-11-18)
+
+> **Done (2026-11-18).**
+> - **Examples:** `notecal-core/src/cheatsheet.rs` holds 10 sections and 44 examples. A test makes sure every one has a result; it caught `a`/`b` being units.
+> - **Command:** `cheatsheet` evaluates the examples with one-shot engines, so the open note's cache is untouched.
+> - **Switcher:** a "?" mode with a Cheatsheet row at the bottom. The filter matches the section title, the English section id and the example text.
+> - **Inserting:** `EditorController.insertBelow` makes an ordinary edit, so one Ctrl+Z removes it.
+> - **Titles:** a UI test reads `cheatsheet.rs` and checks each section has a title in both languages.
+> - **Checked live:** opening it, `?date` (found and fixed: the filter missed the id when the interface was Indonesian), inserting, and undo.
 - **How it opens:** in the Ctrl+P switcher, typing `?` (or choosing a "Cheatsheet" row at the bottom of the list) turns the panel into the cheatsheet. Typing then filters it (`?date`, `?percent`). Esc or deleting the `?` goes back to notes. Ctrl+P stays one key to remember.
 - **Content:** a short description and examples per section:
   - arithmetic and precision;

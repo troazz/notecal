@@ -12,6 +12,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod cheatsheet;
 pub mod currency;
 mod datetime;
 mod format;
