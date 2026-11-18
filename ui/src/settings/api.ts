@@ -13,6 +13,10 @@ export interface AppSettings {
   currency_refresh: boolean;
   always_on_top: boolean;
   background: boolean;
+  /** Pixels per inch for `px`. */
+  css_ppi: number;
+  /** Pixels per `em` and `rem`. */
+  css_em_px: number;
 }
 
 /** Mirrors `SettingsView`: settings plus problems found reading the file. */

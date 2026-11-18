@@ -148,6 +148,8 @@ cargo bench -p notecal-core -- --quick
 ## M7–M10 outlines (each gets its own detailed plan when started)
 
 **M7 — CSS units and custom definitions**
+
+> **Done (2026-11-18).** The spike found fend can't convert *to* a variable (`12 pt in px` fails), but `Context::define_custom_unit_v1` defines real units that convert both ways and override fend's `pt` and `rem`. So no preprocessor rewriting was needed. `px`, `pt`, `em`, `rem` are defined in the base context. `Settings` gained `css_ppi`, `css_em_px` and `definitions`. Definitions are evaluated into the base context (`build_base`), and `unit name = value` lines become custom units. `check_definitions` reports bad lines, which Settings lists as problems. `definitions.txt` sits next to settings.toml on the same watcher and applies live. Golden: `css.txt` and `definitions.txt` (suite 452). Checked live in the app: CSS conversions, definitions, the Settings fields, and a unit added to the file while running.
 - **Spike first:** check that the base context can define `px`, `pt`, `em`, `rem` as units that convert (`12pt in px`, `2rem in px`) and that override fend's `pt` and `rem`. If fend variables can't act as units, the rewriting goes in the preprocessor.
 - **Settings:** `css_ppi` (default 96) and `css_em_px` (default 16).
 - **Definitions file:** `definitions.txt` uses note syntax (variables, `f = x: …` functions, units built from existing units).

@@ -22,8 +22,8 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::time::{Duration, Instant};
 
 use fend_core::{
-    Context, DecimalSeparatorStyle, ExchangeRateFnV2, ExchangeRateFnV2Options, Interrupt,
-    evaluate_with_interrupt,
+    Context, CustomUnitAttribute, DecimalSeparatorStyle, ExchangeRateFnV2, ExchangeRateFnV2Options,
+    Interrupt, evaluate_with_interrupt,
 };
 use jiff::ZonedDateTime;
 
@@ -70,6 +70,13 @@ pub struct Settings {
     pub locale: Locale,
     /// Maximum decimals shown for non-currency results.
     pub precision: u8,
+    /// Pixels per inch for `px` (CSS uses 96).
+    pub css_ppi: u16,
+    /// Pixels per `em` and `rem` (the CSS default font size is 16).
+    pub css_em_px: u16,
+    /// The user's definitions file: `name = value` and `unit name = value`
+    /// lines evaluated before every note (see [`check_definitions`]).
+    pub definitions: String,
 }
 
 impl Default for Settings {
@@ -77,8 +84,32 @@ impl Default for Settings {
         Self {
             locale: Locale::En,
             precision: 6,
+            css_ppi: 96,
+            css_em_px: 16,
+            definitions: String::new(),
         }
     }
+}
+
+/// A line of the definitions file that could not be used.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DefinitionError {
+    /// 1-based line number in the definitions file.
+    pub line: usize,
+    pub message: String,
+}
+
+/// Checks the definitions in `settings`, as the engine will load them.
+///
+/// Lines that only fail for lack of exchange rates are not reported: they
+/// work once rates are fetched.
+#[must_use]
+pub fn check_definitions(settings: &Settings, rates: Option<&Rates>) -> Vec<DefinitionError> {
+    build_base(settings, rates, &ZonedDateTime::now(), &mut HashMap::new())
+        .1
+        .into_iter()
+        .filter(|e| e.message != NO_RATES)
+        .collect()
 }
 
 /// Exchange rates relative to USD, keyed by ISO currency code (e.g. `"IDR"`).
@@ -193,7 +224,8 @@ struct CachedLine {
 #[derive(Default)]
 pub struct Engine {
     config: Option<(Settings, Option<Rates>)>,
-    base: Option<Context>,
+    /// The state every note starts from: CSS units and the user's definitions.
+    base: Option<Base>,
     lines: Vec<CachedLine>,
     /// Whether a name already means something to fend (unit, function, …).
     builtin_names: HashMap<String, bool>,
@@ -235,7 +267,10 @@ impl Engine {
         if !same_config {
             self.lines.clear();
             self.builtin_names.clear();
-            self.base = Some(new_context(settings, rates));
+            self.base = Some(build_base(settings, rates, now, &mut self.builtin_names).0);
+            // Names were checked against the context before the definitions;
+            // now that they are defined, notes must not reassign them.
+            self.builtin_names.clear();
             self.config = Some((settings.clone(), rates.cloned()));
         }
         let base = self.base.as_ref().expect("set above");
@@ -270,14 +305,18 @@ impl Engine {
                 cached.references_after,
                 cached.dates_after.clone(),
             ),
-            None => (base.clone(), References::default(), DateState::default()),
+            None => (
+                base.context.clone(),
+                References::default(),
+                base.dates.clone(),
+            ),
         };
         let (mut context, mut references, mut dates) = restore(&self.lines);
         for (line, &feeds) in lines.iter().zip(&feeds_total).skip(unchanged) {
             let builtin_names = &mut self.builtin_names;
             let outcome = catch_unwind(AssertUnwindSafe(|| {
                 let mut line_eval = LineEval {
-                    base,
+                    base: &base.context,
                     builtin_names,
                     settings,
                     rates,
@@ -304,6 +343,12 @@ impl Engine {
     }
 }
 
+/// Evaluation state shared by every line of a note before its first line.
+struct Base {
+    context: Context,
+    dates: DateState,
+}
+
 fn new_context(settings: &Settings, rates: Option<&Rates>) -> Context {
     let mut context = Context::new();
     if settings.locale == Locale::Id {
@@ -312,7 +357,88 @@ fn new_context(settings: &Settings, rates: Option<&Rates>) -> Context {
     if let Some(rates) = rates {
         context.set_exchange_rate_handler_v2(rates.clone());
     }
+    // CSS units. `pt` and `rem` replace fend's pint and radiation dose,
+    // which stay available as `pint` and their full names.
+    let ppi = settings.css_ppi.max(1);
+    let em = settings.css_em_px.max(1);
+    let none = CustomUnitAttribute::None;
+    context.define_custom_unit_v1("px", "px", &format!("1/{ppi} inch"), &none);
+    context.define_custom_unit_v1("pt", "pt", "1/72 inch", &none);
+    context.define_custom_unit_v1("em", "em", &format!("{em} px"), &none);
+    context.define_custom_unit_v1("rem", "rem", &format!("{em} px"), &none);
     context
+}
+
+/// The base context with the user's definitions evaluated into it, and the
+/// definitions that failed.
+fn build_base(
+    settings: &Settings,
+    rates: Option<&Rates>,
+    now: &ZonedDateTime,
+    builtin_names: &mut HashMap<String, bool>,
+) -> (Base, Vec<DefinitionError>) {
+    let mut context = new_context(settings, rates);
+    let plain = context.clone();
+    let mut dates = DateState::default();
+    let mut errors = Vec::new();
+    for (i, raw) in settings.definitions.split('\n').enumerate() {
+        let line = raw.trim();
+        if preprocess::classify(line) != LineKind::Expr {
+            continue;
+        }
+        let line = preprocess::strip_comment(line);
+        let result = if let Some(rest) = line.strip_prefix("unit ") {
+            define_unit(&mut context, rest.trim())
+        } else if preprocess::split_assignment(line).is_some() {
+            let mut line_eval = LineEval {
+                base: &plain,
+                builtin_names,
+                settings,
+                rates,
+                now,
+            };
+            let mut references = References::default();
+            let outcome = catch_unwind(AssertUnwindSafe(|| {
+                line_eval.run(line, false, &mut context, &mut references, &mut dates)
+            }));
+            match outcome {
+                Ok(result) => result.error.map_or(Ok(()), Err),
+                Err(_) => Err("Internal error while evaluating this line".to_string()),
+            }
+        } else {
+            Err("A definition is 'name = value' or 'unit name = value'".to_string())
+        };
+        if let Err(message) = result {
+            errors.push(DefinitionError {
+                line: i + 1,
+                message,
+            });
+        }
+    }
+    (Base { context, dates }, errors)
+}
+
+/// `unit sprint = 2 weeks`: a unit that converts both ways (`6 weeks in sprints`).
+fn define_unit(context: &mut Context, rest: &str) -> Result<(), String> {
+    let (name, definition) = preprocess::split_assignment(rest)
+        .ok_or_else(|| "A unit is defined as 'unit name = value'".to_string())?;
+    if name.starts_with('_') {
+        return Err(format!("'{name}' is reserved and cannot be a unit"));
+    }
+    // fend reports a bad definition only when the unit is used: try it first.
+    run_fend(definition, &mut context.clone())?;
+    let plural = if name.ends_with('s') {
+        name.to_string()
+    } else {
+        format!("{name}s")
+    };
+    context.define_custom_unit_v1(
+        name,
+        &plural,
+        &format!("({definition})"),
+        &CustomUnitAttribute::None,
+    );
+    run_fend(&format!("1 {name}"), &mut context.clone()).map(|_| ())
 }
 
 struct Deadline(Instant);
@@ -601,7 +727,7 @@ mod tests {
         let en = Settings::default();
         let id = Settings {
             locale: Locale::Id,
-            precision: 6,
+            ..Settings::default()
         };
         let text = "1/4";
         assert_eq!(
@@ -636,5 +762,18 @@ mod tests {
         assert_eq!(later[1].display.as_deref(), Some("10:01"));
         assert_eq!(later[2].display.as_deref(), Some("6"));
         assert_eq!(engine.evaluate_at(text, &settings, None, &at(1)), later);
+    }
+
+    #[test]
+    fn check_definitions_reports_bad_lines_by_number() {
+        let settings = Settings {
+            definitions: "# header\nvat = 11%\n1 + 1\nunit = 5\nunit week2 = 2 parsecs/\nfx = 100 EUR in USD\n"
+                .to_string(),
+            ..Settings::default()
+        };
+        let errors = check_definitions(&settings, None);
+        let lines: Vec<usize> = errors.iter().map(|e| e.line).collect();
+        // Line 6 needs exchange rates, which is not reported as an error.
+        assert_eq!(lines, [3, 4, 5], "{errors:?}");
     }
 }

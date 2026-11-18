@@ -1,0 +1,23 @@
+;; The definitions file, loaded before every note (@define lines)
+@define # rates and helpers
+@define vat = 11%
+@define rate = 15 USD / hour
+@define sq = x: x^2
+@define unit sprint = 2 weeks
+@define payday = 2026-11-25
+@define
+@define // a comment
+price = 200,000 => 200,000
+price * (1 + vat) => 222,000
+3 hours * rate => 45 USD
+sq(12) => 144
+6 weeks in sprints => 3 sprints
+2 sprints in days => 28 days
+payday - today => 7 days
+vat = 12%
+---
+;; A definitions error doesn't stop the rest from loading
+@define unit = 5
+@define good = 42
+@define 1 + 1
+good * 2 => 84

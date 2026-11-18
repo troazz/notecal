@@ -116,6 +116,7 @@ fn main() {
             let config_dir = paths.config_dir()?;
             let settings = SettingsState::new(commands::settings_path(&config_dir));
             let current = settings.view().settings;
+            let engine_settings = settings.engine();
             let rates = RatesState::new(
                 rates::RatesStore::load(commands::rates_path(&paths.cache_dir()?)),
                 Arc::new(rates::ErApi),
@@ -123,7 +124,7 @@ fn main() {
             app.state::<Arc<Evaluator>>()
                 .set_rates(rates.initial_rates());
             app.manage(rates);
-            app.state::<Arc<Evaluator>>().set_settings(current.engine());
+            app.state::<Arc<Evaluator>>().set_settings(engine_settings);
             let data_dir = paths.data_dir()?;
             let state_path = commands::state_path(&config_dir);
             // An unusable notes folder in settings must not stop notecal from starting.

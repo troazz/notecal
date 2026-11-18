@@ -1,0 +1,24 @@
+;; CSS units: px = 1/96 inch, pt = 1/72 inch, em = rem = 16 px (settings)
+12 pt in px => 16 px
+12pt in px => 16 px
+16px in pt => 12 pt
+2 rem in px => 32 px
+1.5em to px => 24 px
+24px in rem => 1.5 rem
+2 rem in pt => 24 pt
+96 px in inch => 1 inch
+1 inch in pt => 72 pt
+100 px in cm => 2.645833 cm
+10 px + 2 pt => 12.666667 px
+24 px / 16 px => 1.5
+1 pint => 1 pint
+1 pint in mL => 473.176473 mL
+---
+@ppi 72
+@em 10
+72 px in inch => 1 inch
+2 rem in px => 20 px
+1.5 em in pt => 15 pt
+---
+;; Not CSS: still fend's units
+5 km in miles => 3.106856 miles

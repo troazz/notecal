@@ -174,6 +174,7 @@ mod tests {
         evaluator.set_settings(Settings {
             locale: notecal_core::Locale::Id,
             precision: 2,
+            ..Settings::default()
         });
         evaluator.announce(1);
         let response = evaluator.evaluate(&request(1, "1/3")).unwrap();

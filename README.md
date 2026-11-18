@@ -12,6 +12,8 @@ A calculator notepad for Linux and macOS. Write natural math, one expression per
 - Variables (`rent = 4,500,000`), `prev`, and block totals with `sum`, `total`, `avg`
 - Currency conversion with daily rates, cached so it works offline
 - Dates and time zones: `today + 2 weeks`, `2026-12-25 - today`, `now in Tokyo`, `3pm Jakarta in London`
+- CSS units: `12 pt in px`, `2 rem in px`, with adjustable px per inch and em size
+- Your own variables, functions and units for every note, in [`definitions.txt`](docs/linux-setup.md#definitions)
 - Hex, binary and octal; `sqrt`, `round`, `log`, trig and more
 - Thousands separators in input and output, in `en` (1,234.5) or `id` (1.234,5) format
 - Several notes, saved automatically as `.txt` files; safe with Syncthing or git (it never overwrites a note that changed on disk while you were editing — your version goes to a conflict copy)
