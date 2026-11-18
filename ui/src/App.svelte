@@ -6,11 +6,18 @@
   import Editor, { type EditorController } from "./Editor.svelte";
   import Switcher from "./notes/Switcher.svelte";
   import Settings from "./settings/Settings.svelte";
+  import StatusBar from "./StatusBar.svelte";
   import { notesApi } from "./notes/api";
   import { settingsApi, type AppSettings, type SettingsView } from "./settings/api";
   import { NoteSession } from "./notes/session";
   import { KeystrokeTimer } from "./editor/perf";
-  import { setLanguage, t, translateMessage, type Language } from "./i18n.svelte";
+  import {
+    currentLanguage,
+    setLanguage,
+    t,
+    translateMessage,
+    type Language,
+  } from "./i18n.svelte";
 
   const timer = new KeystrokeTimer();
   let showStats = $state(false);
@@ -22,6 +29,10 @@
   /** PRD C9 status line: shown only when the note uses a currency. */
   let usesCurrency = $state(false);
   let ratesDate = $state<string | null>(null);
+  /** The saved settings, for the status bar's switches. */
+  let appSettings = $state<AppSettings | null>(null);
+  /** Mirrors the i18n language so the status bar re-renders on change. */
+  let shownLanguage = $state<Language>("en");
   /** C11: the note shows `now`/`today`, so results refresh on the minute. */
   let usesTime = $state(false);
 
@@ -69,6 +80,7 @@
     invoke<Language>("ui_language")
       .then((language) => {
         setLanguage(language);
+        shownLanguage = language;
         document.documentElement.lang = language;
         // The "Copied" flash is drawn by CSS (editor/results.ts).
         document.documentElement.style.setProperty(
@@ -167,6 +179,7 @@
 
   /** Applies settings that live in the UI, and reports file problems. */
   function applySettings(view: SettingsView) {
+    appSettings = view.settings;
     applyLanguage();
     if (view.problems.length) report(`settings.toml: ${view.problems.map(translateMessage).join(" ")}`);
     applyFont(view.settings);
@@ -186,6 +199,20 @@
   }
 
   /** Settings screen saves: pending note edits go first (a notes-folder change switches notes). */
+  /** Status bar: switch between English and Indonesian (saved like Settings). */
+  function toggleLanguage() {
+    if (!appSettings) return;
+    const language = currentLanguage() === "id" ? "en" : "id";
+    saveSettings({ ...appSettings, language }).catch((error: unknown) => report(String(error)));
+  }
+
+  /** Status bar: switch the number format between 1,234.5 and 1.234,5. */
+  function toggleLocale() {
+    if (!appSettings) return;
+    const locale = appSettings.locale === "id" ? "en" : "id";
+    saveSettings({ ...appSettings, locale }).catch((error: unknown) => report(String(error)));
+  }
+
   async function saveSettings(settings: AppSettings) {
     await session?.flush();
     await settingsApi.save(settings);
@@ -215,6 +242,7 @@
     settingsApi
       .get()
       .then((view) => {
+        appSettings = view.settings;
         if (view.problems.length) {
           report(`settings.toml: ${view.problems.map(translateMessage).join(" ")}`);
         }
@@ -322,20 +350,27 @@
 <svelte:window onkeydown={onKeydown} />
 
 <main>
-  <Editor
-    {timer}
-    onready={onEditorReady}
-    onedit={() => session?.edited()}
-    onresults={(response) => {
-      usesCurrency = response.uses_currency;
-      usesTime = response.uses_time;
-    }}
+  <div class="editor-area">
+    <Editor
+      {timer}
+      onready={onEditorReady}
+      onedit={() => session?.edited()}
+      onresults={(response) => {
+        usesCurrency = response.uses_currency;
+        usesTime = response.uses_time;
+      }}
+    />
+  </div>
+  <StatusBar
+    {noteName}
+    language={shownLanguage}
+    locale={appSettings?.locale ?? "en"}
+    {ratesDate}
+    {usesCurrency}
+    {usesTime}
+    ontogglelanguage={toggleLanguage}
+    ontogglelocale={toggleLocale}
   />
-  {#if usesCurrency}
-    <div class="status" title={t("app.ratesTitle")}>
-      {t("app.rates", { date: ratesDate ?? t("app.ratesNone") })}
-    </div>
-  {/if}
   {#if showSwitcher}
     <Switcher
       current={noteName}
@@ -391,11 +426,18 @@
   main {
     height: 100%;
     position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .editor-area {
+    flex: 1;
+    min-height: 0;
   }
   .notice {
     position: absolute;
     right: 0.75rem;
-    bottom: 0.75rem;
+    /* Above the status bar. */
+    bottom: calc(22px + 0.75rem);
     max-width: min(28rem, calc(100% - 1.5rem));
     display: flex;
     gap: 0.75rem;
@@ -416,17 +458,9 @@
     color: var(--text-color);
     cursor: pointer;
   }
-  .status {
-    position: absolute;
-    right: 0.75rem;
-    bottom: 0.25rem;
-    color: var(--muted-color);
-    font: 11px system-ui, sans-serif;
-    pointer-events: none;
-  }
   .stats {
     position: absolute;
-    bottom: 0.5rem;
+    bottom: calc(22px + 0.5rem);
     left: 0.5rem;
     display: flex;
     gap: 0.5rem;

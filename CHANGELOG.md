@@ -14,6 +14,7 @@ First release.
 - `en` and `id` number formats, adjustable precision; a line that takes too long is stopped without blocking the editor.
 
 ### Interface
+- Status bar at the bottom: the open note, the rates date (when the note uses a currency), a "live" marker for results that update every minute, and the number format and language, each switchable with a click.
 - English and Indonesian, chosen in Settings or following the system language (`language = "auto"`); the tray menu, notices, error hover text and the weekday and month names in date results (`Rab, 25 Des 2026`) follow it. Indonesian month names are accepted as input (`17 Agustus 2026`).
 
 ### Platforms
