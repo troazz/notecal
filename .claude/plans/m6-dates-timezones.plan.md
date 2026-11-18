@@ -6,7 +6,7 @@
 
 ## Summary
 
-Close the feature gaps found in the comparison with similar calculator apps (2026-11-18). The scope, settled with the author:
+Close the feature gaps found in the comparison with similar calculator apps (2026-11-18), then add an in-app cheatsheet (M11). The scope, settled with the author:
 - In: dates and time zones (C11), CSS units, custom definitions, a command-line tool (A7), UI languages, and a Windows build.
 - Out: crypto prices and Apple notarization.
 
@@ -205,6 +205,29 @@ cargo bench -p notecal-core -- --quick
 - **Testing:** a manual pass on a Windows machine or VM is the author's step.
 - **Unsigned installer:** SmartScreen will warn, and the README covers "More info → Run anyway".
 - **iCloud Drive on macOS:** document a notes folder in iCloud Drive, and handle evicted `.name.txt.icloud` placeholders: list them as notes and download on open (`brctl download`), or show "not downloaded".
+
+**M11 — Cheatsheet in Ctrl+P** (requested 2026-11-18)
+- **How it opens:** in the Ctrl+P switcher, typing `?` (or choosing a "Cheatsheet" row at the bottom of the list) turns the panel into the cheatsheet. Typing then filters it (`?date`, `?percent`). Esc or deleting the `?` goes back to notes. Ctrl+P stays one key to remember.
+- **Content:** a short description and examples per section:
+  - arithmetic and precision;
+  - percentages;
+  - variables, `prev`, `sum`/`total`/`avg`;
+  - units and conversion;
+  - currency;
+  - dates and time zones;
+  - CSS units;
+  - number bases;
+  - functions;
+  - comments and headers;
+  - `definitions.txt`;
+  - keys.
+- **Inserting:** choosing an example (Enter or click) inserts it on a new line below the cursor, so its result appears straight away.
+- **Live results:** each example's result comes from the engine, through a one-shot evaluation with the user's settings, rates and definitions. Results are never typed by hand, so they can't go stale, and they follow the number format and language.
+- **Ownership:** the examples live in `notecal-core` (`cheatsheet()`), which owns the language. A Rust test checks that every example evaluates without an error. The UI gets them through a command, and section titles and descriptions are translated in `i18n.svelte.ts`.
+- **Validate:**
+  - `scripts/check.sh`;
+  - by hand: Ctrl+P, `?`, filter, insert, in English and Indonesian;
+  - screen readers: the list keeps the switcher's listbox roles.
 
 ## Decisions (2026-11-18)
 
