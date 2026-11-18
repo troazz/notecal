@@ -23,6 +23,8 @@ build() {
   cd "$pkgname/ui"
   # Builds the UI, then the Rust binary with the workspace release profile.
   bun run tauri build --no-bundle
+  cd ..
+  cargo build --release --frozen -p notecal-cli
 }
 
 check() {
@@ -34,6 +36,8 @@ check() {
 package() {
   cd "$pkgname"
   install -Dm755 target/release/notecal "$pkgdir/usr/bin/notecal"
+  install -Dm755 target/release/notecal-cli "$pkgdir/usr/bin/notecal-cli"
+  install -Dm755 packaging/launchers/notecal-calc "$pkgdir/usr/bin/notecal-calc"
   install -Dm644 packaging/aur/notecal.desktop "$pkgdir/usr/share/applications/notecal.desktop"
   install -Dm644 src-tauri/icons/32x32.png "$pkgdir/usr/share/icons/hicolor/32x32/apps/notecal.png"
   install -Dm644 src-tauri/icons/128x128.png "$pkgdir/usr/share/icons/hicolor/128x128/apps/notecal.png"

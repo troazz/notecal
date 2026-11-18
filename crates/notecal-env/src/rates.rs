@@ -1,28 +1,25 @@
 //! Exchange rates (PRD C9): fetched from open.er-api.com at most once a day,
 //! only when a note uses a currency, and cached on disk so conversion keeps
-//! working offline. The network call sits behind `Fetch` so tests never use
-//! the network.
+//! working offline. The network call sits behind `Fetch` (the app's
+//! `er_api.rs`) so this crate and its tests never use the network.
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use notecal_core::Rates;
 use notecal_core::currency::mentions_currency;
 use serde::{Deserialize, Serialize};
 
-use crate::notes::write_atomic;
+use crate::fs::write_atomic;
 
 /// Emitted with a `RatesStatus` after new rates arrive.
 pub const RATES_UPDATED: &str = "rates-updated";
 
-const SOURCE_URL: &str = "https://open.er-api.com/v6/latest/USD";
 /// PRD: refresh at most once every 24 h.
 const MAX_AGE_SECS: u64 = 24 * 60 * 60;
 /// After a failed fetch, wait this long before trying again.
 const RETRY_AFTER_SECS: u64 = 60 * 60;
-const TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Rates as fetched: units per US dollar, and the provider's update date.
 #[derive(Debug, Clone, PartialEq)]
@@ -34,42 +31,6 @@ pub struct Fetched {
 
 pub trait Fetch: Send + Sync {
     fn fetch(&self) -> Result<Fetched, String>;
-}
-
-/// The real source.
-pub struct ErApi;
-
-#[derive(Deserialize)]
-struct ErApiResponse {
-    result: String,
-    time_last_update_utc: String,
-    rates: HashMap<String, f64>,
-}
-
-impl Fetch for ErApi {
-    fn fetch(&self) -> Result<Fetched, String> {
-        let agent: ureq::Agent = ureq::Agent::config_builder()
-            .timeout_global(Some(TIMEOUT))
-            .build()
-            .into();
-        let response: ErApiResponse = agent
-            .get(SOURCE_URL)
-            .call()
-            .map_err(|e| format!("Could not fetch exchange rates: {e}"))?
-            .body_mut()
-            .read_json()
-            .map_err(|e| format!("Unexpected exchange-rate response: {e}"))?;
-        if response.result != "success" || response.rates.is_empty() {
-            return Err(format!(
-                "The exchange-rate service answered '{}'.",
-                response.result
-            ));
-        }
-        Ok(Fetched {
-            per_usd: response.rates,
-            source_date: response.time_last_update_utc,
-        })
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -7,7 +7,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::notes::write_atomic;
+use crate::fs::write_atomic;
 
 /// Emitted with the new `SettingsView` whenever settings change.
 pub const SETTINGS_CHANGED: &str = "settings-changed";

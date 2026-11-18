@@ -65,6 +65,17 @@ hl.bind("ALT + SPACE", hl.dsp.exec_cmd("notecal --toggle"), { description = "not
 
 On X11 and macOS, notecal registers Alt+Space itself (change it in Settings). More bindings and window rules: [docs/linux-setup.md](docs/linux-setup.md).
 
+## Command line
+
+`notecal-cli` evaluates from the terminal with your settings, definitions and cached rates:
+
+```sh
+notecal-cli 100 USD in IDR
+notecal-cli --note budget
+```
+
+More, including an Omarchy menu entry and a Raycast script: [docs/linux-setup.md](docs/linux-setup.md#command-line).
+
 ## Keys
 
 | Keys | Does |

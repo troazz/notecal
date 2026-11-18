@@ -1,6 +1,7 @@
 //! Note and UI-state commands, plus the bridge from file-watch events to the
 //! UI. Storage rules live in `notes.rs`; this layer only locks and routes.
 
+pub use notecal_env::paths::{notes_dir, rates_path, resolve_notes_dir, settings_path, state_path};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -170,27 +171,6 @@ impl Notes {
 fn emit(app: &AppHandle, event: &str, payload: impl Serialize + Clone) {
     if let Err(e) = app.emit(event, payload) {
         eprintln!("notecal: could not send {event}: {e}");
-    }
-}
-
-pub fn notes_dir(data_dir: &Path) -> PathBuf {
-    data_dir.join("notecal").join("notes")
-}
-
-pub fn state_path(config_dir: &Path) -> PathBuf {
-    config_dir.join("notecal").join("state.json")
-}
-
-pub fn settings_path(config_dir: &Path) -> PathBuf {
-    config_dir.join("notecal").join("settings.toml")
-}
-
-/// The notes folder: the `notes_dir` setting, or the default under `data_dir`.
-pub fn resolve_notes_dir(settings: &AppSettings, data_dir: &Path) -> PathBuf {
-    if settings.notes_dir.is_empty() {
-        notes_dir(data_dir)
-    } else {
-        PathBuf::from(&settings.notes_dir)
     }
 }
 
@@ -370,10 +350,6 @@ fn now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs())
-}
-
-pub fn rates_path(cache_dir: &Path) -> PathBuf {
-    cache_dir.join("notecal").join("rates.json")
 }
 
 /// Currency codes, for autocomplete.
