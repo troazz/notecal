@@ -2,20 +2,7 @@
 
 A calculator notepad for Linux and macOS. Write natural math, one expression per line, and each line's result appears on the right as you type. Notes are plain text files.
 
-```
-# Monthly budget
-rent = 4,500,000 IDR                        4,500,000 IDR
-electricity = 350,000 IDR                     350,000 IDR
-internet = 450,000 IDR                        450,000 IDR
-total                                       5,300,000 IDR
-20% of prev                                 1,060,000 IDR
-
-# Conversions
-100 USD in IDR                              1,813,216.71 IDR
-5 km in miles                                3.106856 miles
-3 days 4 hours in minutes                    4,560 minutes
-0xff in binary                                   11111111
-```
+![Typing a monthly budget in notecal: rent, electricity and internet in IDR, then "total" adds them to 5,300,000 IDR and "20% of prev" gives 1,060,000 IDR, each result appearing on the right as the line is typed](docs/media/typing.gif)
 
 ## What it does
 
@@ -28,6 +15,14 @@ total                                       5,300,000 IDR
 - Thousands separators in input and output, in `en` (1,234.5) or `id` (1.234,5) format
 - Several notes, saved automatically as `.txt` files; safe with Syncthing or git (it never overwrites a note that changed on disk while you were editing — your version goes to a conflict copy)
 - Follows your Omarchy theme live, or use light, dark or your own palette
+
+Conversions — currency, units, time and number bases:
+
+![Typing conversions: 100 USD in IDR gives 1,827,820.20 IDR, 5 km in miles gives 3.106856 miles, 3 days 4 hours in minutes gives 4,560 minutes, and 0xff in binary gives 11111111](docs/media/conversions.gif)
+
+Copy a result (it shows "Copied"), switch notes with Ctrl+P, and change the Omarchy theme while notecal follows it:
+
+![Copying two results with Ctrl+Shift+C, opening the note switcher with Ctrl+P, then switching the Omarchy theme to Catppuccin Latte and Gruvbox as notecal recolours live](docs/media/copy-notes-theme.gif)
 
 ## Install
 
