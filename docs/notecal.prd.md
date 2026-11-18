@@ -24,7 +24,7 @@ The v1.0 goal is a scratchpad that opens instantly and feels native. It should r
 
 **Non-goals (v1.0)**
 
-- iOS, Android, or Windows builds.
+- iOS or Android builds. (Windows was added after v1.0's first scope, in M10, built and tested in CI only.)
 - Cloud sync or accounts. Users can sync the notes folder themselves, for example with git or Syncthing.
 - Plotting, graphing, matrices, or symbolic algebra.
 - A plugin or extension system. Custom names, functions and units come from the definitions file instead (M7).
@@ -40,7 +40,7 @@ The primary user is a developer who works on both macOS and Arch Linux (Hyprland
 | macOS | 13 Ventura+, Apple Silicon and Intel | WKWebView | Unsigned `.dmg` |
 | Arch Linux | Rolling, Wayland and X11 | WebKitGTK 4.1 (system package) | AUR package (primary), AppImage |
 
-Other Linux distros are best-effort through the AppImage. Windows is out of scope.
+Other Linux distros are best-effort through the AppImage. Windows (M10) is best-effort: built and tested in CI, not by hand.
 
 The macOS build ships unsigned for v1.0. Users open it once via right-click → Open (or `xattr -d com.apple.quarantine`). A Homebrew cask likely needs a signed, notarized build, so it is deferred until signing is revisited.
 
@@ -307,7 +307,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 | 7 | CSS units and custom definitions (~1 w) | `px`/`pt`/`em`/`rem` (CSS meaning wins) with PPI and em settings; `definitions.txt` loaded before every note | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 8 | Command-line tool (~1 w) | A7: `notecal-cli` for expressions and whole notes, sharing settings, rates cache and definitions; launcher examples; packaged for AUR inputs and the cask | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 9 | UI languages (~1 w) | Interface strings in a catalog; English and Indonesian; `language = "auto"` | complete | `.claude/plans/m6-dates-timezones.plan.md` |
-| 10 | Windows and iCloud Drive (~2 w) | Windows build, tests and installer in CI; Windows-safe saves; iCloud Drive notes folder on macOS | pending | outlined in `.claude/plans/m6-dates-timezones.plan.md` |
+| 10 | Windows and iCloud Drive (~2 w) | Windows build, tests and installer in CI; Windows-safe saves; iCloud Drive notes folder on macOS | in-progress | `.claude/plans/m6-dates-timezones.plan.md` |
 
 **Gate 1 (end of M2): WebKitGTK on Arch.** This is the biggest risk, so it is checked before investing in features. Measure on the author's Arch/Hyprland machine: keystroke-to-results p95 on a 200-line note, cold start, and idle RAM. Result: **passed on Arch** (`docs/gate1.md`). The macOS measurement was deferred by the author to focus on Linux; WKWebView is the lower-risk platform and is measured at Gate 2.
 

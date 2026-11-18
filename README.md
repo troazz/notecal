@@ -1,6 +1,6 @@
 # notecal
 
-A calculator notepad for Linux and macOS. Write natural math, one expression per line, and each line's result appears on the right as you type. Notes are plain text files.
+A calculator notepad for Linux, macOS and Windows. Write natural math, one expression per line, and each line's result appears on the right as you type. Notes are plain text files.
 
 ![Typing a monthly budget in notecal: rent, electricity and internet in IDR, then "total" adds them to 5,300,000 IDR and "20% of prev" gives 1,060,000 IDR, each result appearing on the right as the line is typed](docs/media/typing.gif)
 
@@ -54,7 +54,13 @@ Download the AppImage from [Releases](https://github.com/troazz/notecal/releases
 brew install --cask troazz/tap/notecal
 ```
 
-Or download the `.dmg` from [Releases](https://github.com/troazz/notecal/releases) and drag notecal to Applications. The app is not signed yet, so the first time, right-click it and choose **Open** (or run `xattr -d com.apple.quarantine /Applications/notecal.app`).
+Or download the `.dmg` from [Releases](https://github.com/troazz/notecal/releases) and drag notecal to Applications. The app is not signed yet, so the first time, right-click it and choose **Open** (or run `xattr -d com.apple.quarantine /Applications/notecal.app`). The Homebrew install also puts `notecal-cli` on your `PATH`.
+
+To sync notes through iCloud Drive, set the notes folder in Settings to a folder in `~/Library/Mobile Documents/com~apple~CloudDocs/`. Notes macOS has moved to iCloud to save space still show in the list and download when you open them.
+
+### Windows
+
+Download the `-setup.exe` installer from [Releases](https://github.com/troazz/notecal/releases). It isn't signed yet, so SmartScreen may warn: choose **More info**, then **Run anyway**. `notecal-cli.exe` is installed next to `notecal.exe`. The Windows build is tested in CI only, so please [report problems](https://github.com/troazz/notecal/issues).
 
 ## Show and hide it with a key
 
@@ -95,12 +101,15 @@ On macOS use Cmd instead of Ctrl.
 
 ## Files
 
-| What | Linux | macOS |
-|---|---|---|
-| Notes | `~/.local/share/notecal/notes/` | `~/Library/Application Support/notecal/notes/` |
-| Settings | `~/.config/notecal/settings.toml` | `~/Library/Application Support/notecal/settings.toml` |
-| Your themes | `~/.config/notecal/themes/*.toml` | `~/Library/Application Support/notecal/themes/` |
-| Rates cache | `~/.cache/notecal/rates.json` | `~/Library/Caches/notecal/rates.json` |
+| What | Linux | macOS | Windows |
+|---|---|---|---|
+| Notes | `~/.local/share/notecal/notes/` | `~/Library/Application Support/notecal/notes/` | `%APPDATA%\notecal\notes\` |
+| Settings | `~/.config/notecal/settings.toml` | `~/Library/Application Support/notecal/settings.toml` | `%APPDATA%\notecal\settings.toml` |
+| Definitions | `~/.config/notecal/definitions.txt` | `~/Library/Application Support/notecal/definitions.txt` | `%APPDATA%\notecal\definitions.txt` |
+| Your themes | `~/.config/notecal/themes/*.toml` | `~/Library/Application Support/notecal/themes/` | `%APPDATA%\notecal\themes\` |
+| Rates cache | `~/.cache/notecal/rates.json` | `~/Library/Caches/notecal/rates.json` | `%LOCALAPPDATA%\notecal\rates.json` |
+
+New note names avoid `< > : " | ? *` and Windows device names such as `CON`, so a notes folder synced between systems works everywhere.
 
 Settings are described in [docs/linux-setup.md](docs/linux-setup.md#settings). A theme file uses the same format as Omarchy's `colors.toml`, so any Omarchy theme can be copied in.
 

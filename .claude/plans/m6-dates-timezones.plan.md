@@ -187,6 +187,16 @@ cargo bench -p notecal-core -- --quick
 - **Contributors:** a README note on adding a language.
 
 **M10 — Windows (and iCloud Drive)**
+
+> **In progress (2026-11-18).** Done in code:
+> - Windows-safe names for new and renamed notes (`validate_new_name`). Existing notes still open.
+> - `write_atomic` retries a refused rename on Windows.
+> - `icon.ico` and the `nsis` target.
+> - CI: a `windows` job running clippy and all workspace tests.
+> - Release: a `windows-latest` NSIS build. The macOS and Windows bundles carry `notecal-cli` via `tauri.release.conf.json`, the M8 leftover; the cask has a `binary` stanza.
+> - iCloud: `.Name.txt.icloud` placeholders are listed as notes and downloaded with `brctl` on open.
+>
+> CI on Windows is the only test. The `brctl` path is untested (no Mac).
 - **CI:** add `windows-latest` to `ci.yml` (Rust and UI tests) and to `release.yml` (NSIS installer, size check). A winget/Scoop manifest comes later.
 - **Code:**
   - Windows paths come from the `dirs`-based locations, so they should mostly work already.

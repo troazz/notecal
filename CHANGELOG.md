@@ -16,6 +16,12 @@ First release.
 ### Interface
 - English and Indonesian, chosen in Settings or following the system language (`language = "auto"`); the tray menu, notices, error hover text and the weekday and month names in date results (`Rab, 25 Des 2026`) follow it. Indonesian month names are accepted as input (`17 Agustus 2026`).
 
+### Platforms
+- Windows build (NSIS installer), built and tested in CI.
+- New note names follow Windows file-name rules so synced folders work everywhere; saves retry when another program briefly holds the file (Windows).
+- iCloud Drive notes folders: notes evicted to iCloud are listed and downloaded when opened.
+- The macOS app and Windows installer include `notecal-cli`; the Homebrew cask puts it on your `PATH`.
+
 ### Command line
 - `notecal-cli`: evaluate an expression, a piped note or a saved note (`--note NAME`) from the terminal, with the app's settings, definitions and cached rates; `--copy` prints bare numbers. Installed with the Arch package.
 - Launcher scripts: an Omarchy menu entry (`notecal-calc`) and a Raycast script command.

@@ -75,12 +75,19 @@ impl NoteStore {
         &self.dir
     }
 
-    /// The note name for a path in the notes directory, if it is a note file.
+    /// The note name for a path in the notes directory, if it is a note
+    /// file or an iCloud Drive placeholder for one (`.Budget.txt.icloud`,
+    /// left when macOS evicts a synced file to save space).
     pub fn name_of(&self, path: &Path) -> Option<String> {
-        if path.parent()? != self.dir || path.extension()? != EXTENSION {
+        if path.parent()? != self.dir {
             return None;
         }
-        let name = path.file_stem()?.to_str()?;
+        let file_name = path.file_name()?.to_str()?;
+        let name = match file_name.strip_suffix(ICLOUD_SUFFIX) {
+            Some(rest) => rest.strip_prefix('.')?.strip_suffix(".txt")?,
+            None if path.extension()? == EXTENSION => path.file_stem()?.to_str()?,
+            None => return None,
+        };
         validate_name(name).ok()?;
         Some(name.to_string())
     }
@@ -102,12 +109,19 @@ impl NoteStore {
                 Some(NoteInfo { name, modified_ms })
             })
             .collect();
+        // A note being downloaded from iCloud has both files for a moment.
+        notes.sort_by(|a, b| a.name.cmp(&b.name).then(b.modified_ms.cmp(&a.modified_ms)));
+        notes.dedup_by(|a, b| a.name == b.name);
         notes.sort_by(|a, b| b.modified_ms.cmp(&a.modified_ms).then(a.name.cmp(&b.name)));
         Ok(notes)
     }
 
     pub fn open(&mut self, name: &str) -> Result<String, String> {
         validate_name(name)?;
+        if !self.path(name).exists() && self.icloud_placeholder(name).exists() {
+            download_from_icloud(&self.path(name))
+                .map_err(|e| format!("'{name}' is in iCloud Drive and not downloaded yet: {e}"))?;
+        }
         let text = fs::read_to_string(self.path(name))
             .map_err(|e| format!("Could not open '{name}': {e}"))?;
         self.known
@@ -154,7 +168,7 @@ impl NoteStore {
     }
 
     pub fn create(&mut self, name: &str) -> Result<(), String> {
-        validate_name(name)?;
+        validate_new_name(name)?;
         let path = self.path(name);
         if path.exists() {
             return Err(format!("A note named '{name}' already exists."));
@@ -168,10 +182,10 @@ impl NoteStore {
 
     pub fn rename(&mut self, from: &str, to: &str) -> Result<(), String> {
         validate_name(from)?;
-        validate_name(to)?;
         if from == to {
             return Ok(());
         }
+        validate_new_name(to)?;
         // `to` may "exist" only because it is `from` itself on a
         // case-insensitive filesystem (changing only the letter case).
         // Anything else would be replaced by the rename, so refuse.
@@ -219,6 +233,10 @@ impl NoteStore {
 
     fn path(&self, name: &str) -> PathBuf {
         self.dir.join(format!("{name}.{EXTENSION}"))
+    }
+
+    fn icloud_placeholder(&self, name: &str) -> PathBuf {
+        self.dir.join(format!(".{name}.{EXTENSION}{ICLOUD_SUFFIX}"))
     }
 
     /// `base`, or `base 2`, `base 3`… if a note already has that name.
@@ -292,6 +310,67 @@ pub fn validate_name(name: &str) -> Result<(), String> {
         return Err(format!(
             "A note name can be at most {MAX_NAME_BYTES} bytes long."
         ));
+    }
+    Ok(())
+}
+
+/// Suffix of iCloud Drive placeholders for files evicted from this Mac.
+const ICLOUD_SUFFIX: &str = ".icloud";
+
+/// Asks iCloud Drive to download `path` and waits up to 10 s for it.
+#[cfg(target_os = "macos")]
+fn download_from_icloud(path: &Path) -> Result<(), String> {
+    let status = std::process::Command::new("brctl")
+        .arg("download")
+        .arg(path)
+        .status()
+        .map_err(|e| format!("could not run brctl: {e}"))?;
+    if !status.success() {
+        return Err(format!("brctl download failed ({status})"));
+    }
+    for _ in 0..100 {
+        if path.exists() {
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    Err("the download did not finish within 10 seconds; try again".into())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn download_from_icloud(_path: &Path) -> Result<(), String> {
+    Err("download it on a Mac first".into())
+}
+
+/// Checks a name for a new or renamed note: [`validate_name`], plus the
+/// rules of Windows file names, so a note made on one system opens on every
+/// system the notes folder is synced to. Existing notes are not held to these
+/// rules; they can still be opened, saved and renamed.
+pub fn validate_new_name(name: &str) -> Result<(), String> {
+    validate_name(name)?;
+    const FORBIDDEN: [char; 7] = ['<', '>', ':', '"', '|', '?', '*'];
+    if name.contains(FORBIDDEN) {
+        return Err(
+            "A note name cannot contain < > : \" | ? * (Windows does not allow them).".into(),
+        );
+    }
+    if name.ends_with('.') {
+        return Err("A note name cannot end with '.'.".into());
+    }
+    // Windows device names, whatever the case and even with an extension.
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or(name)
+        .trim_end()
+        .to_ascii_uppercase();
+    let reserved = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || ((stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.len() == 4
+            && stem.as_bytes()[3].is_ascii_digit()
+            && stem.as_bytes()[3] != b'0');
+    if reserved {
+        return Err(format!("'{name}' is a reserved name on Windows."));
     }
     Ok(())
 }
@@ -536,6 +615,52 @@ mod tests {
         for name in ["Budget", "Trip 2026", "Catatan belanja", "a.b", "日本"] {
             assert!(validate_name(name).is_ok(), "{name:?} should be allowed");
         }
+    }
+
+    #[test]
+    fn new_names_follow_windows_rules_but_old_notes_still_open() {
+        for name in [
+            "a:b", "what?", "x*y", "a<b", "q\"", "pipe|", "end.", "CON", "nul", "com1", "Lpt9.x",
+        ] {
+            assert!(
+                validate_new_name(name).is_err(),
+                "{name:?} should be refused"
+            );
+        }
+        for name in [
+            "Budget",
+            "Trip 2026",
+            "a.b",
+            "COM0",
+            "Console",
+            "COM10",
+            "budget (conflict 2026-11-18 1030)",
+        ] {
+            assert!(
+                validate_new_name(name).is_ok(),
+                "{name:?} should be allowed"
+            );
+        }
+        let (dir, mut store) = store();
+        std::fs::write(dir.path().join("10:30 standup.txt"), "1 + 1").unwrap();
+        assert_eq!(store.open("10:30 standup").unwrap(), "1 + 1");
+        assert!(store.create("11:00 standup").is_err());
+        assert!(store.rename("10:30 standup", "10:30 standup").is_ok());
+        assert!(store.rename("10:30 standup", "1030 standup").is_ok());
+    }
+
+    #[test]
+    fn icloud_placeholders_are_listed_as_their_notes() {
+        let (dir, mut store) = store();
+        std::fs::write(dir.path().join(".Budget.txt.icloud"), "plist").unwrap();
+        std::fs::write(dir.path().join("Trip.txt"), "").unwrap();
+        std::fs::write(dir.path().join(".Trip.txt.icloud"), "plist").unwrap();
+        std::fs::write(dir.path().join(".other.icloud"), "").unwrap();
+        let names: Vec<String> = store.list().unwrap().into_iter().map(|n| n.name).collect();
+        assert_eq!(names.len(), 2, "{names:?}");
+        assert!(names.contains(&"Budget".to_string()) && names.contains(&"Trip".to_string()));
+        #[cfg(not(target_os = "macos"))]
+        assert!(store.open("Budget").unwrap_err().contains("iCloud Drive"));
     }
 
     #[test]

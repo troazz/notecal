@@ -1,7 +1,8 @@
 name: Release
 
-# A `v*` tag builds the macOS .dmg and the Linux AppImage and attaches them to
-# a draft GitHub Release for review (PRD M5). The AUR package builds from the
+# A `v*` tag builds the macOS .dmg, the Windows installer and the Linux
+# AppImage and attaches them to a draft GitHub Release for review (PRD M5,
+# M10). The macOS and Windows bundles also carry notecal-cli. The AUR package builds from the
 # tagged source instead (packaging/aur/PKGBUILD).
 on:
   push:
@@ -17,9 +18,13 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            args: --target universal-apple-darwin --bundles dmg
+            args: --target universal-apple-darwin --bundles dmg --config src-tauri/tauri.release.conf.json
             rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
-          # Older glibc so the AppImage runs on more distributions.
+          - platform: windows-latest
+            args: --bundles nsis --config src-tauri/tauri.release.conf.json
+            rust-targets: ""
+          # Older glibc so the AppImage runs on more distributions. An AppImage
+          # can't expose a second program, so it has no notecal-cli.
           - platform: ubuntu-22.04
             args: --bundles appimage
             rust-targets: ""
@@ -45,6 +50,23 @@ jobs:
         working-directory: ui
         run: bun install --frozen-lockfile
 
+      # Tauri bundles `binaries/notecal-cli-<target>` (tauri.release.conf.json).
+      - name: Build notecal-cli for the bundle
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          if [ "$RUNNER_OS" = macOS ]; then
+            cargo build --release -p notecal-cli --target aarch64-apple-darwin
+            cargo build --release -p notecal-cli --target x86_64-apple-darwin
+            lipo -create -output src-tauri/binaries/notecal-cli-universal-apple-darwin \
+              target/aarch64-apple-darwin/release/notecal-cli \
+              target/x86_64-apple-darwin/release/notecal-cli
+          else
+            cargo build --release -p notecal-cli
+            cp target/release/notecal-cli.exe src-tauri/binaries/notecal-cli-x86_64-pc-windows-msvc.exe
+          fi
+
       - name: Build and attach to a draft release
         id: tauri
         uses: tauri-apps/tauri-action@action-v1.0.0
@@ -56,12 +78,13 @@ jobs:
           args: ${{ matrix.args }}
           tagName: ${{ github.ref_name }}
           releaseName: notecal ${{ github.ref_name }}
-          releaseBody: See CHANGELOG.md. The macOS build is unsigned; open it once with right-click → Open.
+          releaseBody: See CHANGELOG.md. The macOS and Windows builds are unsigned; on macOS allow it once in System Settings › Privacy & Security › Open Anyway, on Windows choose More info › Run anyway.
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
 
-      # PRD package-size budget: .dmg ≤ 15 MB; the AppImage bundles WebKitGTK,
-      # so its size is reported, not budgeted.
+      # PRD package-size budget: .dmg ≤ 15 MB; the AppImage bundles WebKitGTK
+      # and the Windows installer may carry the WebView2 bootstrapper, so their
+      # sizes are reported, not budgeted.
       - name: Check bundle sizes
         shell: bash
         env:

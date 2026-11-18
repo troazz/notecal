@@ -18,6 +18,7 @@ cask "notecal" do
   depends_on macos: ">= :big_sur"
 
   app "notecal.app"
+  binary "#{appdir}/notecal.app/Contents/MacOS/notecal-cli"
 
   zap trash: [
     "~/Library/Application Support/notecal",
