@@ -59,6 +59,12 @@ jobs:
           if [ "$RUNNER_OS" = macOS ]; then
             cargo build --release -p notecal-cli --target aarch64-apple-darwin
             cargo build --release -p notecal-cli --target x86_64-apple-darwin
+            # A universal build compiles each architecture separately, and
+            # each looks for its own copy before the bundle gets the fat one.
+            for arch in aarch64 x86_64; do
+              cp "target/$arch-apple-darwin/release/notecal-cli" \
+                "src-tauri/binaries/notecal-cli-$arch-apple-darwin"
+            done
             lipo -create -output src-tauri/binaries/notecal-cli-universal-apple-darwin \
               target/aarch64-apple-darwin/release/notecal-cli \
               target/x86_64-apple-darwin/release/notecal-cli
