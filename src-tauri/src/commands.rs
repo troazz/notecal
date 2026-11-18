@@ -218,7 +218,9 @@ impl SettingsState {
 
     /// Engine settings: the user's settings plus their definitions.
     pub fn engine(&self) -> notecal_core::Settings {
-        self.view().settings.engine(&self.definitions())
+        self.view()
+            .settings
+            .engine(&self.definitions(), self.ui_language())
     }
 
     pub fn path(&self) -> &Path {
@@ -255,8 +257,14 @@ impl SettingsState {
             .current
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = view.clone();
-        app.state::<Arc<Evaluator>>()
-            .set_settings(view.settings.engine(&definitions));
+        app.state::<Arc<Evaluator>>().set_settings(
+            view.settings.engine(
+                &definitions,
+                view.settings
+                    .language
+                    .resolve(sys_locale::get_locale().as_deref()),
+            ),
+        );
         crate::shell::apply_window_settings(app, &view.settings);
         if old.settings.theme != view.settings.theme {
             app.state::<ThemeSource>().emit_current(app);

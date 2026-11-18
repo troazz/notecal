@@ -124,7 +124,7 @@ The interface is in English and Indonesian. To add a language:
 - add tray labels in `src-tauri/src/shell.rs`;
 - add an option to `Language` in `crates/notecal-env/src/settings.rs`.
 
-Weekday and month names in date results, and fend's own error messages, stay English.
+Date results use the interface language for weekday and month names (`Rab, 25 Des 2026`), and Indonesian month names are accepted as input (`17 Agustus`). fend's own error messages stay English.
 
 ## Credits
 

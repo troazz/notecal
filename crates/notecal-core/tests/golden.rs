@@ -6,7 +6,7 @@
 //! - `input => expected || copy` also asserts the bare-number copy.
 //! - A line without `=>` asserts that the line shows no result.
 //! - `---` starts a new note. `@locale id`, `@precision N`, `@now
-//!   YYYY-MM-DDTHH:MM`, `@zone Area/City`, `@ppi N`, `@em N` and `@define
+//!   YYYY-MM-DDTHH:MM`, `@zone Area/City`, `@language id`, `@ppi N`, `@em N` and `@define
 //!   <definitions line>` apply to the next note only.
 //!   Lines starting with `;;` are test comments, not note text.
 //!
@@ -20,7 +20,7 @@ use std::path::Path;
 use jiff::ZonedDateTime;
 use jiff::civil::DateTime;
 use jiff::tz::TimeZone;
-use notecal_core::{Locale, Rates, Settings, evaluate_note_at};
+use notecal_core::{Language, Locale, Rates, Settings, evaluate_note_at};
 
 const DEFAULT_NOW: &str = "2026-11-18T10:00";
 const DEFAULT_ZONE: &str = "Asia/Jakarta";
@@ -78,6 +78,7 @@ fn parse(file: &str, content: &str) -> Vec<Note> {
             match directive.split_once(' ') {
                 Some(("locale", "id")) => settings.locale = Locale::Id,
                 Some(("locale", "en")) => settings.locale = Locale::En,
+                Some(("language", "id")) => settings.language = Language::Id,
                 Some(("precision", n)) => settings.precision = n.parse().expect("precision"),
                 Some(("now", value)) => now = value.to_string(),
                 Some(("zone", value)) => zone = value.to_string(),

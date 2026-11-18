@@ -63,6 +63,14 @@ impl Locale {
     }
 }
 
+/// Language of words in results: weekday and month names.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Language {
+    #[default]
+    En,
+    Id,
+}
+
 /// Evaluation settings that come from the user's preferences.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Settings {
@@ -70,6 +78,8 @@ pub struct Settings {
     pub locale: Locale,
     /// Maximum decimals shown for non-currency results.
     pub precision: u8,
+    /// Weekday and month names in date results.
+    pub language: Language,
     /// Pixels per inch for `px` (CSS uses 96).
     pub css_ppi: u16,
     /// Pixels per `em` and `rem` (the CSS default font size is 16).
@@ -84,6 +94,7 @@ impl Default for Settings {
         Self {
             locale: Locale::En,
             precision: 6,
+            language: Language::En,
             css_ppi: 96,
             css_em_px: 16,
             definitions: String::new(),
@@ -526,7 +537,8 @@ impl LineEval<'_> {
             match evaluated.outcome {
                 Outcome::Value(value) => {
                     dates.set_date(name, &value);
-                    let (display, copy) = datetime::format(&value, self.now);
+                    let (display, copy) =
+                        datetime::format(&value, self.now, self.settings.language);
                     return Ok(Some(LineResult {
                         display: Some(display),
                         copy: Some(copy),
