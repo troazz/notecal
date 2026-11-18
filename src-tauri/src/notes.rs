@@ -548,7 +548,12 @@ mod tests {
         let (_dir, mut store) = store();
         store.create("budget").unwrap();
         store.save("budget", "lower", STAMP).unwrap();
-        store.create("Budget").unwrap();
+        // On a case-insensitive filesystem (Windows, default macOS) they are
+        // the same file, so creating the second one is refused.
+        if store.create("Budget").is_err() {
+            assert_eq!(read(&store, "Budget"), "lower");
+            return;
+        }
         store.save("Budget", "upper", STAMP).unwrap();
         // On a case-sensitive filesystem these are two notes; renaming one
         // onto the other must not destroy it.
@@ -642,11 +647,18 @@ mod tests {
             );
         }
         let (dir, mut store) = store();
-        std::fs::write(dir.path().join("10:30 standup.txt"), "1 + 1").unwrap();
-        assert_eq!(store.open("10:30 standup").unwrap(), "1 + 1");
         assert!(store.create("11:00 standup").is_err());
-        assert!(store.rename("10:30 standup", "10:30 standup").is_ok());
-        assert!(store.rename("10:30 standup", "1030 standup").is_ok());
+        // A note named with ':' can only exist where the filesystem allows it
+        // (made on Linux or macOS); it still opens and can be renamed away.
+        #[cfg(unix)]
+        {
+            std::fs::write(dir.path().join("10:30 standup.txt"), "1 + 1").unwrap();
+            assert_eq!(store.open("10:30 standup").unwrap(), "1 + 1");
+            assert!(store.rename("10:30 standup", "10:30 standup").is_ok());
+            assert!(store.rename("10:30 standup", "1030 standup").is_ok());
+        }
+        #[cfg(not(unix))]
+        let _ = dir;
     }
 
     #[test]
