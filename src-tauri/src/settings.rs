@@ -52,6 +52,10 @@ pub struct AppSettings {
     pub always_on_top: bool,
     /// Closing the window hides it; Quit from the tray.
     pub background: bool,
+    /// Pixels per inch for `px`.
+    pub css_ppi: u16,
+    /// Pixels per `em` and `rem`.
+    pub css_em_px: u16,
 }
 
 impl Default for AppSettings {
@@ -67,19 +71,49 @@ impl Default for AppSettings {
             currency_refresh: true,
             always_on_top: false,
             background: true,
+            css_ppi: 96,
+            css_em_px: 16,
         }
     }
 }
 
 pub const FONT_SIZES: std::ops::RangeInclusive<u8> = 8..=40;
 pub const PRECISIONS: std::ops::RangeInclusive<u8> = 0..=20;
+pub const CSS_PPIS: std::ops::RangeInclusive<u16> = 1..=1000;
+pub const CSS_EM_PXS: std::ops::RangeInclusive<u16> = 1..=200;
+
+/// The definitions file, next to settings.toml.
+pub const DEFINITIONS_FILE: &str = "definitions.txt";
+
+/// Reads the definitions file; missing or unreadable means none.
+pub fn load_definitions(path: &Path) -> String {
+    match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => {
+            eprintln!("notecal: could not read {}: {e}", path.display());
+            String::new()
+        }
+    }
+}
+
+/// Lines of the definitions file that could not be used, for the Settings screen.
+pub fn definition_problems(settings: &AppSettings, definitions: &str) -> Vec<String> {
+    notecal_core::check_definitions(&settings.engine(definitions), None)
+        .into_iter()
+        .map(|e| format!("{DEFINITIONS_FILE} line {}: {}", e.line, e.message))
+        .collect()
+}
 
 impl AppSettings {
-    /// Engine settings derived from these.
-    pub fn engine(&self) -> notecal_core::Settings {
+    /// Engine settings derived from these and the definitions file's text.
+    pub fn engine(&self, definitions: &str) -> notecal_core::Settings {
         notecal_core::Settings {
             locale: self.locale.into(),
             precision: self.precision,
+            css_ppi: self.css_ppi,
+            css_em_px: self.css_em_px,
+            definitions: definitions.to_string(),
         }
     }
 }
@@ -153,6 +187,14 @@ pub fn parse(text: &str) -> SettingsView {
                     "an absolute folder path such as \"/home/you/Notes\", or \"\" for the default",
                 ),
             },
+            "css_ppi" => match medium_int(value, &CSS_PPIS) {
+                Some(n) => settings.css_ppi = n,
+                None => bad(&mut problems, "a number from 1 to 1000"),
+            },
+            "css_em_px" => match medium_int(value, &CSS_EM_PXS) {
+                Some(n) => settings.css_em_px = n,
+                None => bad(&mut problems, "a number from 1 to 200"),
+            },
             "currency_refresh" | "always_on_top" | "background" => match value.as_bool() {
                 Some(b) => match key.as_str() {
                     "currency_refresh" => settings.currency_refresh = b,
@@ -165,6 +207,13 @@ pub fn parse(text: &str) -> SettingsView {
         }
     }
     SettingsView { settings, problems }
+}
+
+fn medium_int(value: &toml::Value, range: &std::ops::RangeInclusive<u16>) -> Option<u16> {
+    value
+        .as_integer()
+        .and_then(|n| u16::try_from(n).ok())
+        .filter(|n| range.contains(n))
 }
 
 fn small_int(value: &toml::Value, range: &std::ops::RangeInclusive<u8>) -> Option<u8> {
@@ -307,8 +356,32 @@ mod tests {
             locale: Locale::Id,
             ..AppSettings::default()
         };
-        let engine = settings.engine();
+        let engine = settings.engine("vat = 11%");
         assert_eq!(engine.precision, 2);
         assert_eq!(engine.locale, notecal_core::Locale::Id);
+        assert_eq!(engine.css_ppi, 96);
+        assert_eq!(engine.definitions, "vat = 11%");
+    }
+
+    #[test]
+    fn css_settings_are_range_checked() {
+        let view = parse("css_ppi = 72\ncss_em_px = 10\n");
+        assert_eq!((view.settings.css_ppi, view.settings.css_em_px), (72, 10));
+        assert!(view.problems.is_empty());
+        let view = parse("css_ppi = 0\ncss_em_px = 500\n");
+        assert_eq!((view.settings.css_ppi, view.settings.css_em_px), (96, 16));
+        assert_eq!(view.problems.len(), 2);
+    }
+
+    #[test]
+    fn definitions_are_optional_and_their_errors_are_listed() {
+        let dir = TempDir::new().unwrap();
+        assert_eq!(load_definitions(&dir.path().join(DEFINITIONS_FILE)), "");
+        let problems = definition_problems(&AppSettings::default(), "vat = 11%\n1 + 1\n");
+        assert_eq!(problems.len(), 1);
+        assert!(
+            problems[0].starts_with("definitions.txt line 2:"),
+            "{problems:?}"
+        );
     }
 }

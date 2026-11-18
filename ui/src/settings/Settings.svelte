@@ -186,6 +186,28 @@
           <option value="id">1.234,5 (id)</option>
         </select>
 
+        <label for="s-ppi">CSS px per inch</label>
+        <input
+          id="s-ppi"
+          data-key="css_ppi"
+          type="number"
+          min="1"
+          max="1000"
+          value={settings.css_ppi}
+          onchange={(e) => void update({ css_ppi: numberFrom(e) }, e.currentTarget)}
+        />
+
+        <label for="s-em">CSS px per em/rem</label>
+        <input
+          id="s-em"
+          data-key="css_em_px"
+          type="number"
+          min="1"
+          max="200"
+          value={settings.css_em_px}
+          onchange={(e) => void update({ css_em_px: numberFrom(e) }, e.currentTarget)}
+        />
+
         <label for="s-notes">Notes folder</label>
         <input
           id="s-notes"
@@ -236,6 +258,10 @@
         </div>
       </div>
     {/if}
+    <p class="hint">
+      Your own variables, functions and units go in ~/.config/notecal/definitions.txt (for example
+      <code>vat = 11%</code> or <code>unit sprint = 2 weeks</code>); they apply to every note.
+    </p>
     <p class="hint">
       Saved to ~/.config/notecal/settings.toml as you change them. Exchange rates by Exchange Rate
       API (www.exchangerate-api.com, open.er-api.com).

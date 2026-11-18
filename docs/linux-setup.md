@@ -82,7 +82,23 @@ notes_dir = ""           # empty = default folder
 currency_refresh = true  # false = use cached exchange rates only
 always_on_top = false
 background = true        # closing the window hides it; quit from the tray
+css_ppi = 96             # px per inch, 1–1000
+css_em_px = 16           # px per em and rem, 1–200
 ```
+
+## Definitions
+
+`~/.config/notecal/definitions.txt` holds your own names for every note. It is optional, and edits apply as soon as the file is saved. Each line is a definition, a comment (`#`, `//`) or blank:
+
+```
+vat = 11%
+rate = 15 USD / hour
+sq = x: x^2              # a function: sq(12)
+payday = 2026-11-25      # a date: payday - today
+unit sprint = 2 weeks    # a unit that converts: 6 weeks in sprints
+```
+
+A note cannot reassign a defined name. A line that doesn't work is listed in Settings (Ctrl+,) with its line number; the other lines still load.
 
 ## WebKitGTK
 

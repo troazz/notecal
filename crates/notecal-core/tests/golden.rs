@@ -6,7 +6,8 @@
 //! - `input => expected || copy` also asserts the bare-number copy.
 //! - A line without `=>` asserts that the line shows no result.
 //! - `---` starts a new note. `@locale id`, `@precision N`, `@now
-//!   YYYY-MM-DDTHH:MM` and `@zone Area/City` apply to the next note only.
+//!   YYYY-MM-DDTHH:MM`, `@zone Area/City`, `@ppi N`, `@em N` and `@define
+//!   <definitions line>` apply to the next note only.
 //!   Lines starting with `;;` are test comments, not note text.
 //!
 //! Every note gets a fixed rate table (USD 1, IDR 16000, EUR 0.9 per USD) and
@@ -65,6 +66,14 @@ fn parse(file: &str, content: &str) -> Vec<Note> {
             zone = DEFAULT_ZONE.to_string();
             continue;
         }
+        if let Some(line) = raw
+            .strip_prefix("@define ")
+            .or((raw == "@define").then_some(""))
+        {
+            settings.definitions.push_str(line);
+            settings.definitions.push('\n');
+            continue;
+        }
         if let Some(directive) = raw.strip_prefix('@') {
             match directive.split_once(' ') {
                 Some(("locale", "id")) => settings.locale = Locale::Id,
@@ -72,6 +81,8 @@ fn parse(file: &str, content: &str) -> Vec<Note> {
                 Some(("precision", n)) => settings.precision = n.parse().expect("precision"),
                 Some(("now", value)) => now = value.to_string(),
                 Some(("zone", value)) => zone = value.to_string(),
+                Some(("ppi", n)) => settings.css_ppi = n.parse().expect("ppi"),
+                Some(("em", n)) => settings.css_em_px = n.parse().expect("em"),
                 _ => panic!("{file}:{}: unknown directive {raw}", i + 1),
             }
             continue;

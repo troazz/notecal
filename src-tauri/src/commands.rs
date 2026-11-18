@@ -194,22 +194,43 @@ pub fn resolve_notes_dir(settings: &AppSettings, data_dir: &Path) -> PathBuf {
     }
 }
 
-/// The current settings and where they live.
+/// The current settings, the user's definitions, and where they live.
 pub struct SettingsState {
     path: PathBuf,
+    definitions_path: PathBuf,
     current: Mutex<SettingsView>,
+    /// Text of `definitions.txt`, evaluated before every note.
+    definitions: Mutex<String>,
 }
 
 impl SettingsState {
     pub fn new(path: PathBuf) -> Self {
-        let view = settings::load(&path);
+        let definitions_path = path.with_file_name(settings::DEFINITIONS_FILE);
+        let definitions = settings::load_definitions(&definitions_path);
+        let mut view = settings::load(&path);
+        view.problems
+            .extend(settings::definition_problems(&view.settings, &definitions));
         for problem in &view.problems {
             eprintln!("notecal: {problem}");
         }
         Self {
             path,
+            definitions_path,
             current: Mutex::new(view),
+            definitions: Mutex::new(definitions),
         }
+    }
+
+    fn definitions(&self) -> String {
+        self.definitions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Engine settings: the user's settings plus their definitions.
+    pub fn engine(&self) -> notecal_core::Settings {
+        self.view().settings.engine(&self.definitions())
     }
 
     pub fn path(&self) -> &Path {
@@ -224,9 +245,13 @@ impl SettingsState {
     }
 
     /// Stores `view` and applies it; emits `settings-changed` if it differs.
-    fn apply(&self, app: &AppHandle, mut view: SettingsView) {
+    /// `definitions_changed` applies it even when the view is the same.
+    fn apply(&self, app: &AppHandle, mut view: SettingsView, definitions_changed: bool) {
+        let definitions = self.definitions();
+        view.problems
+            .extend(settings::definition_problems(&view.settings, &definitions));
         let old = self.view();
-        if old == view {
+        if old == view && !definitions_changed {
             return;
         }
         // A folder that cannot be used keeps the old one, so the app state
@@ -243,7 +268,7 @@ impl SettingsState {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = view.clone();
         app.state::<Arc<Evaluator>>()
-            .set_settings(view.settings.engine());
+            .set_settings(view.settings.engine(&definitions));
         crate::shell::apply_window_settings(app, &view.settings);
         if old.settings.theme != view.settings.theme {
             app.state::<ThemeSource>().emit_current(app);
@@ -261,10 +286,19 @@ impl SettingsState {
             .push(problem);
     }
 
-    /// Handles watch events in the config folder (hand edits of settings.toml).
+    /// Handles watch events in the config folder (hand edits of
+    /// settings.toml and definitions.txt).
     pub fn on_paths_changed(&self, app: &AppHandle, paths: &[PathBuf]) {
-        if paths.iter().any(|p| p == &self.path) {
-            self.apply(app, settings::load(&self.path));
+        let definitions_changed = paths.iter().any(|p| p == &self.definitions_path);
+        if definitions_changed {
+            *self
+                .definitions
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                settings::load_definitions(&self.definitions_path);
+        }
+        if definitions_changed || paths.iter().any(|p| p == &self.path) {
+            self.apply(app, settings::load(&self.path), definitions_changed);
         }
     }
 }
@@ -386,6 +420,7 @@ pub async fn save_settings(
             settings,
             problems: Vec::new(),
         },
+        false,
     );
     Ok(())
 }

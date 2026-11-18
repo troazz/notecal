@@ -224,7 +224,7 @@ mod tests {
     fn id_locale() {
         let settings = Settings {
             locale: Locale::Id,
-            precision: 6,
+            ..Settings::default()
         };
         let f = format_result("approx. 1234567,3333333333", &settings, None, false);
         assert_eq!(f.display, "1.234.567,333333");
