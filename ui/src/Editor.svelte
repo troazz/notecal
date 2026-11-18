@@ -84,7 +84,9 @@
         // PRD E4: undo/redo, multiple cursors (Ctrl+click, Alt+drag), search.
         highlightSpecialChars(),
         history(),
-        drawSelection(),
+        // A steady cursor: blinking made WebKit repaint about twice a second,
+        // ~2% CPU while the window sat focused and idle (Gate 2).
+        drawSelection({ cursorBlinkRate: 0 }),
         EditorState.allowMultipleSelections.of(true),
         rectangularSelection(),
         crosshairCursor(),

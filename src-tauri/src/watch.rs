@@ -10,7 +10,11 @@ use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, ne
 /// Keeps a watch alive; dropping it stops the watch.
 pub type Watch = Debouncer<RecommendedWatcher, RecommendedCache>;
 
-const DEBOUNCE: Duration = Duration::from_millis(100);
+/// Events within this window are delivered together. The debouncer checks
+/// for them on a timer of the same length: its default (a quarter of the
+/// window) woke each watcher 40 times a second, about 1% CPU at idle
+/// across the app's five watches (Gate 2).
+const DEBOUNCE: Duration = Duration::from_millis(200);
 
 /// Calls `on_change` with the paths touched in `dir` (not recursive), at
 /// most once per debounce window. Watch errors are logged and ignored: a
@@ -20,28 +24,27 @@ pub fn watch_dir(
     dir: &Path,
     mut on_change: impl FnMut(Vec<PathBuf>) + Send + 'static,
 ) -> Result<Watch, String> {
-    let mut debouncer =
-        new_debouncer(
-            DEBOUNCE,
-            None,
-            move |result: DebounceEventResult| match result {
-                Ok(events) => {
-                    let mut paths: Vec<PathBuf> =
-                        events.into_iter().flat_map(|e| e.event.paths).collect();
-                    paths.sort();
-                    paths.dedup();
-                    if !paths.is_empty() {
-                        on_change(paths);
-                    }
+    let mut debouncer = new_debouncer(
+        DEBOUNCE,
+        Some(DEBOUNCE),
+        move |result: DebounceEventResult| match result {
+            Ok(events) => {
+                let mut paths: Vec<PathBuf> =
+                    events.into_iter().flat_map(|e| e.event.paths).collect();
+                paths.sort();
+                paths.dedup();
+                if !paths.is_empty() {
+                    on_change(paths);
                 }
-                Err(errors) => {
-                    for error in errors {
-                        eprintln!("notecal: file watch error: {error}");
-                    }
+            }
+            Err(errors) => {
+                for error in errors {
+                    eprintln!("notecal: file watch error: {error}");
                 }
-            },
-        )
-        .map_err(|e| format!("Could not start watching {}: {e}", dir.display()))?;
+            }
+        },
+    )
+    .map_err(|e| format!("Could not start watching {}: {e}", dir.display()))?;
     debouncer
         .watch(dir, RecursiveMode::NonRecursive)
         .map_err(|e| format!("Could not watch {}: {e}", dir.display()))?;
