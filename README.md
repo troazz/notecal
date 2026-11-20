@@ -48,9 +48,19 @@ makepkg -si
 
 To upgrade later, run `git pull` in the clone, then `makepkg -si` again. notecal tells you when a new version is out and shows this command (turn it off with "Check for updates daily" in Settings).
 
+### Ubuntu, Linux Mint, Debian
+
+Download `notecal_<version>_amd64.deb` from [Releases](https://github.com/troazz/notecal/releases) and install it:
+
+```sh
+sudo apt install ./notecal_1.0.1_amd64.deb
+```
+
+It adds notecal to the app menu and puts `notecal-cli` on your `PATH`. Ubuntu 22.04+, Mint 21+ and Debian 12+ are supported. When a new version is out, notecal shows the same command for it.
+
 ### Other Linux
 
-Download the AppImage from [Releases](https://github.com/troazz/notecal/releases), make it executable and run it.
+Download the AppImage from [Releases](https://github.com/troazz/notecal/releases), make it executable and run it. On Ubuntu 22.04 and later it needs FUSE 2 first: `sudo apt install libfuse2` (`libfuse2t64` on 24.04). The AppImage updates itself: when a new version is out, notecal downloads it and offers **Restart to update**.
 
 ### macOS
 

@@ -1,7 +1,12 @@
-//! Update check (PRD A9): compares this build with the latest GitHub release
-//! and tells the UI when a newer one exists. It never downloads or installs:
-//! pacman, Homebrew and the installers own the files, so the user updates
-//! the way they installed.
+//! Updates (PRD A9): compares this build with the latest GitHub release and
+//! tells the UI when a newer one exists. How it is installed depends on how
+//! notecal was installed:
+//! - Windows installer, `.dmg`, AppImage: the updater plugin downloads the
+//!   signed update in the background; one click installs it and restarts.
+//! - Homebrew: one click runs `brew upgrade --cask notecal`, so brew keeps
+//!   track of what is installed.
+//! - pacman (built with makepkg) and the `.deb`: the UI shows the command;
+//!   installing needs root.
 
 use std::path::Path;
 use std::process::Command;
@@ -11,6 +16,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_updater::{Update, UpdaterExt};
 
 use crate::commands::SettingsState;
 
@@ -22,6 +28,8 @@ const FIRST_DELAY: Duration = Duration::from_secs(10);
 const INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 
 pub const UPDATE_AVAILABLE: &str = "update-available";
+/// An install or brew upgrade failed; the payload is the message.
+pub const UPDATE_FAILED: &str = "update-failed";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct UpdateInfo {
@@ -29,6 +37,8 @@ pub struct UpdateInfo {
     pub version: String,
     /// How this copy was installed, so the UI shows the matching upgrade step.
     pub install: Install,
+    /// `Updater` only: the update is downloaded and verified, ready to install.
+    pub ready: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -38,7 +48,11 @@ pub enum Install {
     Homebrew,
     /// The pacman package built from the repository with `makepkg`.
     Pacman,
-    /// AppImage, `.dmg` or Windows installer: download the new one.
+    /// The `.deb` (Ubuntu, Mint, Debian): download it, then `apt install` it.
+    Deb,
+    /// Windows installer, `.dmg` app or AppImage: the updater plugin installs it.
+    Updater,
+    /// Anything else (a development build, a copied binary): download it.
     Download,
 }
 
@@ -51,6 +65,11 @@ struct Evidence {
     homebrew_cask: bool,
     /// The running binary is `/usr/bin/notecal` and pacman's database lists notecal.
     pacman_package: bool,
+    /// The running binary is `/usr/bin/notecal` and dpkg lists the notecal package.
+    deb_package: bool,
+    /// The updater plugin can replace this copy: Windows and macOS builds, or
+    /// a Linux AppImage (`$APPIMAGE` is set).
+    self_updatable: bool,
 }
 
 fn install_method(evidence: &Evidence) -> Install {
@@ -58,6 +77,10 @@ fn install_method(evidence: &Evidence) -> Install {
         Install::Homebrew
     } else if !evidence.macos && evidence.pacman_package {
         Install::Pacman
+    } else if !evidence.macos && evidence.deb_package {
+        Install::Deb
+    } else if evidence.self_updatable {
+        Install::Updater
     } else {
         Install::Download
     }
@@ -71,7 +94,9 @@ fn gather_evidence() -> Evidence {
     .iter()
     .any(|dir| Path::new(dir).is_dir());
     let exe = std::env::current_exe().ok();
-    let pacman_package = exe.as_deref() == Some(Path::new("/usr/bin/notecal"))
+    let system_binary = exe.as_deref() == Some(Path::new("/usr/bin/notecal"));
+    let deb_package = system_binary && Path::new("/var/lib/dpkg/info/notecal.list").is_file();
+    let pacman_package = system_binary
         && std::fs::read_dir("/var/lib/pacman/local").is_ok_and(|entries| {
             entries.flatten().any(|e| {
                 let name = e.file_name();
@@ -81,16 +106,56 @@ fn gather_evidence() -> Evidence {
                     .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()))
             })
         });
+    let self_updatable = if cfg!(target_os = "linux") {
+        std::env::var_os("APPIMAGE").is_some()
+    } else {
+        // Debug builds run from target/, never from an installed app.
+        !cfg!(debug_assertions)
+    };
     Evidence {
         macos: cfg!(target_os = "macos"),
         homebrew_cask,
         pacman_package,
+        deb_package,
+        self_updatable,
     }
 }
 
-/// The newest release found, if it is newer than this build.
+/// The newest release found, if it is newer than this build, and for the
+/// updater the downloaded update waiting for the user's click.
 #[derive(Default)]
-pub struct UpdateState(Mutex<Option<UpdateInfo>>);
+pub struct UpdateState(Mutex<Found>);
+
+#[derive(Default)]
+struct Found {
+    info: Option<UpdateInfo>,
+    download: Option<(Update, Vec<u8>)>,
+}
+
+impl UpdateState {
+    fn lock(&self) -> std::sync::MutexGuard<'_, Found> {
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+}
+
+/// Fetches the signed update through the plugin (its `latest.json`), and
+/// downloads it. The plugin checks the signature against the public key in
+/// tauri.conf.json before `install` accepts the bytes.
+fn download_update(app: &AppHandle) -> Result<Option<(Update, Vec<u8>)>, String> {
+    tauri::async_runtime::block_on(async {
+        let updater = app.updater().map_err(|e| e.to_string())?;
+        let Some(update) = updater.check().await.map_err(|e| e.to_string())? else {
+            return Ok(None);
+        };
+        let bytes = update
+            .download(|_, _| {}, || {})
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(Some((update, bytes)))
+    })
+}
 
 #[derive(Deserialize)]
 struct Release {
@@ -146,14 +211,30 @@ fn check(app: &AppHandle) {
             let Some(version) = newer_release(env!("CARGO_PKG_VERSION"), &release) else {
                 return;
             };
-            let info = UpdateInfo {
+            let mut info = UpdateInfo {
                 version,
                 install: install_method(&gather_evidence()),
+                ready: false,
             };
-            *app.state::<UpdateState>()
-                .0
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(info.clone());
+            let state = app.state::<UpdateState>();
+            if info.install == Install::Updater {
+                if state.lock().download.is_some() {
+                    return; // already downloaded and announced
+                }
+                match download_update(app) {
+                    Ok(Some(download)) => {
+                        info.ready = true;
+                        state.lock().download = Some(download);
+                    }
+                    // A release without updater files (1.0.0): download by hand.
+                    Ok(None) => info.install = Install::Download,
+                    Err(e) => {
+                        eprintln!("notecal: could not download the update: {e}");
+                        info.install = Install::Download;
+                    }
+                }
+            }
+            state.lock().info = Some(info.clone());
             if let Err(e) = app.emit(UPDATE_AVAILABLE, info) {
                 eprintln!("notecal: {e}");
             }
@@ -183,23 +264,69 @@ pub fn start(app: &AppHandle) {
 /// For a UI that starts after the event was sent.
 #[tauri::command]
 pub fn update_status(state: State<'_, UpdateState>) -> Option<UpdateInfo> {
-    state
-        .0
+    state.lock().info.clone()
+}
+
+/// Installs the downloaded update and restarts into it (Windows closes the
+/// app for the installer itself).
+#[tauri::command]
+pub fn install_update(app: AppHandle, state: State<'_, UpdateState>) -> Result<(), String> {
+    let (update, bytes) = state
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone()
+        .download
+        .take()
+        .ok_or("No update has been downloaded.")?;
+    update
+        .install(bytes)
+        .map_err(|e| format!("Could not install the update: {e}"))?;
+    app.restart()
+}
+
+/// `brew upgrade --cask notecal` on its own thread; restarts into the new
+/// version when brew succeeds, or reports brew's message.
+#[tauri::command]
+pub fn upgrade_with_homebrew(app: AppHandle) -> Result<(), String> {
+    // GUI apps don't get the shell's PATH, so look where Homebrew installs itself.
+    let brew = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
+        .into_iter()
+        .find(|path| Path::new(path).is_file())
+        .ok_or("Homebrew was not found.")?;
+    thread::Builder::new()
+        .name("brew-upgrade".into())
+        .spawn(move || {
+            let result = Command::new(brew)
+                .args(["upgrade", "--cask", "notecal"])
+                .output();
+            match result {
+                Ok(output) if output.status.success() => app.restart(),
+                Ok(output) => {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let last = stderr
+                        .lines()
+                        .rev()
+                        .find(|l| !l.trim().is_empty())
+                        .unwrap_or("");
+                    report_failure(&app, format!("brew upgrade failed: {last}"));
+                }
+                Err(e) => report_failure(&app, format!("Could not run brew: {e}")),
+            }
+        })
+        .map(drop)
+        .map_err(|e| format!("Could not start brew: {e}"))
+}
+
+fn report_failure(app: &AppHandle, message: String) {
+    eprintln!("notecal: {message}");
+    if let Err(e) = app.emit(UPDATE_FAILED, message) {
+        eprintln!("notecal: {e}");
+    }
 }
 
 /// Opens the newer release's page in the browser. The URL is built here from
 /// the parsed version, so nothing from the network becomes a command argument.
 #[tauri::command]
 pub fn open_release_page(state: State<'_, UpdateState>) -> Result<(), String> {
-    let version = state
-        .0
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .as_ref()
-        .map(|info| info.version.clone());
+    let version = state.lock().info.as_ref().map(|info| info.version.clone());
     let url = match version.as_deref().and_then(parse_version) {
         Some((major, minor, patch)) => format!("{RELEASES}/tag/v{major}.{minor}.{patch}"),
         None => format!("{RELEASES}/latest"),
@@ -280,7 +407,25 @@ mod tests {
             ..Evidence::default()
         };
         assert_eq!(install_method(&pacman), Install::Pacman);
-        // A dragged-in .dmg, an AppImage, the Windows installer.
+        let deb = Evidence {
+            deb_package: true,
+            ..Evidence::default()
+        };
+        assert_eq!(install_method(&deb), Install::Deb);
+        let installer = Evidence {
+            self_updatable: true,
+            ..Evidence::default()
+        };
+        assert_eq!(install_method(&installer), Install::Updater);
+        // Homebrew and pacman own their files even where the updater could run.
+        let brew_app = Evidence {
+            macos: true,
+            homebrew_cask: true,
+            self_updatable: true,
+            ..Evidence::default()
+        };
+        assert_eq!(install_method(&brew_app), Install::Homebrew);
+        // Not replaceable by the updater (a development build): download by hand.
         assert_eq!(
             install_method(&Evidence {
                 macos: true,

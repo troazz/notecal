@@ -119,6 +119,8 @@ fn main() {
             .plugin(tauri_plugin_global_shortcut::Builder::new().build());
     }
     builder
+        // A9: self-update for the installer, .dmg and AppImage builds.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(startup)
         .manage(Arc::new(Evaluator::default()))
         .manage(shell::ShortcutStatus::default())
@@ -245,6 +247,8 @@ fn main() {
             pin::desktop_info,
             updates::update_status,
             updates::open_release_page,
+            updates::install_update,
+            updates::upgrade_with_homebrew,
             shell::cancel_quit,
             commands::rates_status,
             commands::currency_codes,

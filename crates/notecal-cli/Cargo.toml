@@ -1,6 +1,6 @@
 [package]
 name = "notecal-cli"
-version = "1.0.0"
+version = "1.0.1"
 description = "Evaluate notecal expressions and notes from the terminal"
 edition.workspace = true
 rust-version.workspace = true

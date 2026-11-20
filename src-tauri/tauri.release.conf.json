@@ -3,6 +3,7 @@
   "bundle": {
     "externalBin": [
       "binaries/notecal-cli"
-    ]
+    ],
+    "createUpdaterArtifacts": true
   }
 }

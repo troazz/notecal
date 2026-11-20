@@ -46,8 +46,18 @@
   let vimStatus = $state<VimStatus | null>(null);
   /** A9: a newer release, until dismissed for this session. */
   let update = $state<UpdateInfo | null>(null);
-  const upgrade = $derived(update ? upgradeCommand(update.install) : null);
+  const upgrade = $derived(update ? upgradeCommand(update.install, update.version) : null);
   let upgradeCopied = $state(false);
+  /** Installing or upgrading right now; the app restarts when it's done. */
+  let upgrading = $state(false);
+
+  function runUpgrade(command: "install_update" | "upgrade_with_homebrew") {
+    upgrading = true;
+    invoke(command).catch((error: unknown) => {
+      upgrading = false;
+      report(String(error));
+    });
+  }
   /** A4: false where the desktop can't keep a window on top (Wayland other than Hyprland). */
   let pinSupported = $state(true);
   /** Whether vim keys are on in the editor (applied, not just saved). */
@@ -330,6 +340,10 @@
       settingsApi.onChanged(applySettings),
       listen("notes-dir-changed", () => void onNotesDirChanged()),
       listen<UpdateInfo>("update-available", (event) => (update = event.payload)),
+      listen<string>("update-failed", (event) => {
+        upgrading = false;
+        report(event.payload);
+      }),
       listen<{ date: string | null }>("rates-updated", (event) => {
         ratesDate = event.payload.date;
         editor?.reevaluate();
@@ -532,14 +546,33 @@
   <div class="notices">
     {#if update}
       <div class="notice update" role="status">
-        <span>{t("update.available", { version: update.version })}</span>
+        <span
+          >{upgrading
+            ? t("update.installing")
+            : update.ready
+              ? t("update.ready", { version: update.version })
+              : t("update.available", { version: update.version })}</span
+        >
         {#if upgrade}
           <span class="upgrade">
-            {update.install === "pacman" ? t("update.pacman") : t("update.homebrew")}
+            {update.install === "pacman"
+              ? t("update.pacman")
+              : update.install === "deb"
+                ? t("update.deb")
+                : t("update.homebrew")}
             <code>{upgrade}</code>
           </span>
         {/if}
         <span class="actions">
+          {#if update.install === "updater" && update.ready}
+            <button type="button" disabled={upgrading} onclick={() => runUpgrade("install_update")}
+              >{t("update.restart")}</button
+            >
+          {:else if update.install === "homebrew"}
+            <button type="button" disabled={upgrading} onclick={() => runUpgrade("upgrade_with_homebrew")}
+              >{t("update.upgradeNow")}</button
+            >
+          {/if}
           {#if upgrade}
             <button
               type="button"
@@ -554,7 +587,7 @@
           <button
             type="button"
             onclick={() => invoke("open_release_page").catch((error: unknown) => report(String(error)))}
-            >{upgrade ? t("update.whatsNew") : t("update.download")}</button
+            >{(upgrade && update.install !== "deb") || update.ready ? t("update.whatsNew") : t("update.download")}</button
           >
           <button type="button" onclick={() => (update = null)}>{t("update.later")}</button>
         </span>

@@ -1,6 +1,6 @@
 [package]
 name = "notecal-env"
-version = "1.0.0"
+version = "1.0.1"
 description = "notecal's files: settings, definitions, the rates cache and their locations"
 edition.workspace = true
 rust-version.workspace = true

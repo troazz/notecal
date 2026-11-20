@@ -1,6 +1,6 @@
 # Maintainer: Puas Citro <puas.citro@gmail.com>
 pkgname=notecal
-pkgver=1.0.0
+pkgver=1.0.1
 pkgrel=1
 pkgdesc="Calculator notepad: natural math per line, results as you type"
 arch=('x86_64' 'aarch64')
