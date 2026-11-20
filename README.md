@@ -28,6 +28,10 @@ Copy a result (it shows "Copied"), switch notes with Ctrl+P, and change the Omar
 
 ![Copying two results with Ctrl+Shift+C, opening the note switcher with Ctrl+P, then switching the Omarchy theme to Catppuccin Latte and Gruvbox as notecal recolours live](docs/media/copy-notes-theme.gif)
 
+On first start, a short setup walks through the look, language and number format, keys (with the Hyprland bind line to copy) and your data. Every choice applies at once, Skip keeps the defaults, and it ends on a Welcome note of examples. Reopen it from Settings or with `?welcome` in Ctrl+P.
+
+![The setup's Look step: theme cards with a live preview of Auto, Light and Dark, and font size choices](docs/media/onboarding.png)
+
 ## Install
 
 ### Arch Linux

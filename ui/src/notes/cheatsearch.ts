@@ -60,7 +60,7 @@ export interface CheatSection {
 
 export type CheatRow =
   | { kind: "example"; title: string; text: string; result: string | null; help: string; first: boolean }
-  | { kind: "shortcut"; title: string; keys: string; help: string; first: boolean };
+  | { kind: "shortcut"; title: string; keys: string; help: string; first: boolean; action?: "welcome" };
 
 /** Cheatsheet rows matching `query`; the keyboard shortcuts come last. */
 export function cheatRows(sheet: readonly CheatSection[], query: string, vimMode: boolean): CheatRow[] {
@@ -82,7 +82,14 @@ export function cheatRows(sheet: readonly CheatSection[], query: string, vimMode
   for (const shortcut of SHORTCUTS) {
     if (shortcut.vim && !vimMode) continue;
     if (!matchesAll(words, keysWords, inAllLanguages(shortcut.label), shortcut.keys)) continue;
-    rows.push({ kind: "shortcut", title: t("cheatsheet.keys"), keys: shortcut.keys, help: t(shortcut.label), first });
+    rows.push({
+      kind: "shortcut",
+      title: t("cheatsheet.keys"),
+      keys: shortcut.keys,
+      help: t(shortcut.label),
+      first,
+      action: shortcut.action,
+    });
     first = false;
   }
   return rows;

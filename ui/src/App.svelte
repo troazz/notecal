@@ -12,11 +12,14 @@
   import { NoteSession } from "./notes/session";
   import { KeystrokeTimer } from "./editor/perf";
   import type { VimStatus } from "./editor/vimstate";
+  import type { CheatSection } from "./notes/cheatsearch";
+  import { WELCOME_NOTE, welcomeNote } from "./onboarding/steps";
   import {
     currentLanguage,
     setLanguage,
     t,
     translateMessage,
+    type Key,
     type Language,
   } from "./i18n.svelte";
 
@@ -25,6 +28,8 @@
   let stats = $state(timer.stats());
   let showSwitcher = $state(false);
   let showSettings = $state(false);
+  /** A8: the first-run onboarding (also reopened from Settings and the cheatsheet). */
+  let showOnboarding = $state(false);
   let noteName = $state<string | null>(null);
   let notice = $state<string | null>(null);
   /** PRD C9 status line: shown only when the note uses a currency. */
@@ -146,6 +151,7 @@
   async function startOnce() {
     try {
       const [state, notes] = await Promise.all([notesApi.loadState(), notesApi.list()]);
+      if (state.onboarding === "pending") showOnboarding = true;
       const last = notes.find((n) => n.name === state.lastNote)?.name;
       const name = last ?? notes[0]?.name ?? (await createScratch());
       await openNote(name, last ? state.cursor : 0);
@@ -168,6 +174,37 @@
     } catch (error) {
       report(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  /** The onboarding was finished or skipped; it isn't shown at startup again. */
+  async function finishOnboarding(withWelcome: boolean) {
+    showOnboarding = false;
+    try {
+      await notesApi.finishOnboarding();
+      if (withWelcome) await openWelcomeNote();
+    } catch (error) {
+      report(String(error));
+    }
+    editor?.focus();
+  }
+
+  /** Opens the Welcome note of examples, creating it the first time. */
+  async function openWelcomeNote() {
+    const exists = (await notesApi.list()).some((n) => n.name === WELCOME_NOTE);
+    if (exists) return openNote(WELCOME_NOTE);
+    const sheet = await invoke<CheatSection[]>("cheatsheet");
+    const text = welcomeNote(sheet, {
+      title: t("onboarding.title"),
+      intro: t("onboarding.noteIntro"),
+      section: (id) => t(`cheatsheet.${id}` as Key),
+      explain: (id) => t(`cheat.${id}` as Key),
+    });
+    await notesApi.create(WELCOME_NOTE);
+    await openNote(WELCOME_NOTE);
+    if (session?.name !== WELCOME_NOTE) return;
+    // An ordinary edit of the open note: the session saves it.
+    editor?.setText(text, 0);
+    session.edited();
   }
 
   /** There is always a note open, so typing is never lost: recreate Scratch when none exist. */
@@ -363,6 +400,8 @@
 
   /** The app's Ctrl shortcuts; null for any other key. */
   function shortcutAction(event: KeyboardEvent): (() => void) | null {
+    // The onboarding is modal: no switcher or settings on top of it.
+    if (showOnboarding) return null;
     const mod = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
     if (!mod) return null;
@@ -400,6 +439,7 @@
       event.key === "Escape" &&
       !showSwitcher &&
       !showSettings &&
+      !showOnboarding &&
       !event.defaultPrevented &&
       !inEditorPanel(event) &&
       !escapeForVim
@@ -476,6 +516,10 @@
       }}
       onerror={report}
       vimMode={appSettings?.vim_mode ?? false}
+      onwelcome={() => {
+        showSwitcher = false;
+        showOnboarding = true;
+      }}
       oninsert={(text) => {
         showSwitcher = false;
         editor?.insertBelow(text);
@@ -485,6 +529,10 @@
   {/if}
   {#if showSettings}
     <Settings
+      onwelcome={() => {
+        showSettings = false;
+        showOnboarding = true;
+      }}
       onsave={saveSettings}
       onclose={() => {
         showSettings = false;
@@ -492,6 +540,11 @@
       }}
       onerror={report}
     />
+  {/if}
+  {#if showOnboarding}
+    {#await import("./onboarding/Onboarding.svelte") then { default: Onboarding }}
+      <Onboarding onsave={saveSettings} onfinish={(welcome) => void finishOnboarding(welcome)} onerror={report} />
+    {/await}
   {/if}
   {#if notice}
     <div class="notice" role="alert">

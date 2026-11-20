@@ -8,11 +8,14 @@
     onsave,
     onclose,
     onerror,
+    onwelcome,
   }: {
     /** Saves settings (the app flushes pending note edits first). */
     onsave: (settings: AppSettings) => Promise<void>;
     onclose: () => void;
     onerror: (message: string) => void;
+    /** Opens the onboarding again (A8). */
+    onwelcome: () => void;
   } = $props();
 
   let settings = $state<AppSettings | null>(null);
@@ -281,6 +284,9 @@
       </div>
     {/if}
     <p class="hint">
+      <button type="button" class="welcome" onclick={() => void close().then(onwelcome)}>{t("settings.showWelcome")}</button>
+    </p>
+    <p class="hint">
       {t("settings.definitionsBefore")} <code>vat = 11%</code> {t("settings.or")}
       <code>unit sprint = 2 weeks</code>. {t("settings.definitionsAfter")}
     </p>
@@ -348,6 +354,15 @@
     margin: 0.4rem 0 0;
     color: var(--muted-color);
     font-size: 12px;
+  }
+  .welcome {
+    padding: 0.25rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font: inherit;
+    cursor: pointer;
   }
   .problems {
     margin: 0 0 0.75rem;

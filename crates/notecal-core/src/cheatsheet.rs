@@ -164,4 +164,34 @@ mod tests {
             );
         }
     }
+
+    /// The onboarding's welcome note (ui/src/onboarding/steps.ts) puts the
+    /// first example of every section in one note, under a header and a
+    /// comment. They must still all work together there.
+    #[test]
+    fn welcome_layout_evaluates() {
+        let rates = Rates::from_per_usd(HashMap::from([
+            ("USD".to_string(), 1.0),
+            ("IDR".to_string(), 16000.0),
+        ]));
+        let now: ZonedDateTime = "2026-11-18T10:00[Asia/Jakarta]".parse().unwrap();
+        let mut note = String::from("# Welcome\n// intro\n");
+        let mut last_lines = Vec::new();
+        for section in SECTIONS {
+            let example = section.examples[0];
+            note.push_str(&format!(
+                "\n# {}\n// explanation\n{}\n",
+                section.id, example.text
+            ));
+            last_lines.push((note.lines().count() - 1, example.text));
+        }
+        let results = evaluate_note_at(&note, &Settings::default(), Some(&rates), &now);
+        for (line, example) in last_lines {
+            let result = &results[line];
+            assert!(
+                result.display.is_some() && result.error.is_none(),
+                "{example:?} on line {line} gave {result:?}"
+            );
+        }
+    }
 }

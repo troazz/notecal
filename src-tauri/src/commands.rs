@@ -58,6 +58,8 @@ struct Inner {
 pub struct Notes {
     inner: Mutex<Inner>,
     state_path: PathBuf,
+    /// `state.json` is read, changed and written back; one writer at a time.
+    state_lock: Mutex<()>,
     /// Watch on the notes folder; replaced when the folder changes.
     watch: Mutex<Option<Watch>>,
 }
@@ -87,6 +89,7 @@ impl Notes {
                 open: None,
             }),
             state_path,
+            state_lock: Mutex::new(()),
             watch: Mutex::new(None),
         })
     }
@@ -534,6 +537,20 @@ pub fn list_themes(source: State<'_, ThemeSource>) -> Vec<String> {
     theme::list_user_themes(&source.themes_dir)
 }
 
+/// A theme's palette for a preview card in the onboarding (A8), without
+/// choosing it. `None` for `auto` without Omarchy (the built-in palette).
+#[tauri::command]
+pub fn preview_theme(
+    name: String,
+    source: State<'_, ThemeSource>,
+) -> Result<Option<Theme>, String> {
+    // Same rule as the `theme` setting: a plain file name, never a path.
+    if name.is_empty() || name.starts_with('.') || name.contains(['/', '\\']) {
+        return Err(format!("'{name}' is not a theme name"));
+    }
+    theme::resolve(&name, &source.omarchy_current, &source.themes_dir)
+}
+
 #[tauri::command]
 pub fn load_state(notes: State<'_, Notes>) -> UiState {
     state::load(&notes.state_path)
@@ -541,5 +558,19 @@ pub fn load_state(notes: State<'_, Notes>) -> UiState {
 
 #[tauri::command]
 pub async fn save_state(ui_state: UiState, notes: State<'_, Notes>) -> Result<(), String> {
-    state::save(&notes.state_path, &ui_state)
+    let _guard = notes
+        .state_lock
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    state::save_position(&notes.state_path, &ui_state)
+}
+
+/// The first-run onboarding was finished or skipped (A8).
+#[tauri::command]
+pub async fn finish_onboarding(notes: State<'_, Notes>) -> Result<(), String> {
+    let _guard = notes
+        .state_lock
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    state::finish_onboarding(&notes.state_path)
 }

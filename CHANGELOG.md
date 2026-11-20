@@ -14,6 +14,7 @@ First release.
 - `en` and `id` number formats, adjustable precision; a line that takes too long is stopped without blocking the editor.
 
 ### Interface
+- First-run setup in the style of Zed's and VS Code's: look (theme cards with previews, font size), language and number format, keys (the Hyprland bind line to copy, or the shortcut; standard or vim editing; always on top) and data (daily rates, notes folder). Choices apply live; Skip keeps the defaults; it ends on a Welcome note with an example from every cheatsheet section. Shown once on a fresh install; reopen from Settings or the cheatsheet.
 - Cheatsheet in Ctrl+P: type `?` for examples of every kind of calculation, with live results and a one-line explanation, plus the keyboard shortcuts. Search matches the examples, explanations and section keywords in English or Indonesian (`?discount`, `?diskon`, `?tz tokyo`, `?keys`); Enter inserts an example into the note.
 - Vim mode (`vim_mode`, off by default): normal, insert and visual modes, operators, counts, registers, `.`, `/` search; the mode shows in the status bar; Esc leaves insert mode first and hides the window from normal mode; `:w` saves, `:q`/`:x`/`:wq` save and hide.
 - Always on top works on Hyprland (pins the floating window) and has a pin button in the status bar.

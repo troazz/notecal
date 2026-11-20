@@ -37,6 +37,44 @@ pub fn pin_support() -> PinSupport {
     support()
 }
 
+/// Hyprland's config language, for the bind line the onboarding offers (A8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HyprConfig {
+    /// `hyprland.lua` (Hyprland 0.55+, Omarchy).
+    Lua,
+    /// `hyprland.conf`.
+    Classic,
+}
+
+/// What the onboarding's Keys step needs to know about the desktop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct DesktopInfo {
+    /// Apps can't register a global shortcut: the compositor binds `notecal --toggle`.
+    pub wayland: bool,
+    pub hyprland: Option<HyprConfig>,
+    pub pin: PinSupport,
+}
+
+#[tauri::command]
+pub fn desktop_info() -> DesktopInfo {
+    let pin = support();
+    let hyprland = (pin == PinSupport::Hyprland).then(|| {
+        let lua = notecal_env::paths::system_dirs()
+            .is_some_and(|dirs| dirs.config.join("hypr/hyprland.lua").is_file());
+        if lua {
+            HyprConfig::Lua
+        } else {
+            HyprConfig::Classic
+        }
+    });
+    DesktopInfo {
+        wayland: crate::shell::is_wayland(),
+        hyprland,
+        pin,
+    }
+}
+
 /// Applies `on` to the window. Hyprland work runs on its own thread: it waits
 /// for the window to be mapped, and `hyprctl` must not block the main thread.
 pub fn apply(window: &WebviewWindow, on: bool) {

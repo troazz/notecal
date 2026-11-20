@@ -12,6 +12,8 @@ export interface NoteInfo {
 export interface UiState {
   lastNote: string | null;
   cursor: number;
+  /** First-run onboarding (A8); the backend keeps it when the UI saves. */
+  onboarding?: "pending" | "done";
 }
 
 /** Typed wrappers for the note commands in src-tauri/src/commands.rs. */
@@ -25,6 +27,7 @@ export const notesApi = {
   delete: (name: string) => invoke<void>("delete_note", { name }),
   loadState: () => invoke<UiState>("load_state"),
   saveState: (uiState: UiState) => invoke<void>("save_state", { uiState }),
+  finishOnboarding: () => invoke<void>("finish_onboarding"),
   onDiskChange: (handler: (event: DiskChangeEvent) => void): Promise<UnlistenFn> =>
     listen<DiskChangeEvent>("note-changed-on-disk", (e) => handler(e.payload)),
   onListChanged: (handler: () => void): Promise<UnlistenFn> =>

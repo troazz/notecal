@@ -15,6 +15,7 @@
     onerror,
     oninsert,
     vimMode = false,
+    onwelcome,
   }: {
     current: string | null;
     /** Settles pending saves, so none lands on a renamed or deleted note. */
@@ -28,6 +29,8 @@
     oninsert: (text: string) => void;
     /** Lists the vim keys in the cheatsheet's shortcuts (E10). */
     vimMode?: boolean;
+    /** Opens the onboarding again (A8). */
+    onwelcome: () => void;
   } = $props();
 
   type Row = { kind: "note"; name: string } | { kind: "create"; name: string } | { kind: "cheatsheet" } | CheatRow;
@@ -107,8 +110,11 @@
       oninsert(row.text);
       return;
     }
-    // Shortcut rows are help only.
-    if (row.kind === "shortcut") return;
+    // Shortcut rows are help only, except the one that opens the onboarding.
+    if (row.kind === "shortcut") {
+      if (row.action === "welcome") onwelcome();
+      return;
+    }
     if (row.kind === "create") {
       try {
         await notesApi.create(row.name);
