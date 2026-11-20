@@ -40,4 +40,8 @@ _Pending: the author measures the CI `.dmg` on the Mac._
 
 ## Decision
 
-_Open until the hand-typed p95 on Arch and the macOS numbers are in._
+2026-11-20: the author released v1.0.0 with the Arch measurements above. Two measurements were still open:
+- the hand-typed keystroke p95 on Arch (the scripted p95 was 213 ms);
+- the macOS numbers.
+
+They are follow-ups for 1.0.x, not release blockers.
