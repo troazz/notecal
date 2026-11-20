@@ -2526,7 +2526,7 @@ dependencies = [
 
 [[package]]
 name = "notecal"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "notecal-core",
  "notecal-env",
@@ -2547,7 +2547,7 @@ dependencies = [
 
 [[package]]
 name = "notecal-cli"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "notecal-core",
  "notecal-env",
@@ -2556,7 +2556,7 @@ dependencies = [
 
 [[package]]
 name = "notecal-core"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "criterion",
  "fend-core",
@@ -2566,7 +2566,7 @@ dependencies = [
 
 [[package]]
 name = "notecal-env"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "dirs 6.0.0",
  "notecal-core",

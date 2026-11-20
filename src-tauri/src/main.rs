@@ -1,3 +1,7 @@
+// Release builds are GUI apps on Windows: without this, Windows opens a
+// console window next to notecal. Debug builds keep it for their log output.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod commands;
 mod er_api;
 mod evaluator;

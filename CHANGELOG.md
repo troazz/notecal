@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2 — 2026-11-20
+
+- Windows: notecal no longer opens a console window next to the app.
+
 ## 1.0.1 — 2026-11-20
 
 - `.deb` package for Ubuntu 22.04+, Linux Mint 21+ and Debian 12+, with `notecal-cli`; the update prompt shows its `apt install` command.

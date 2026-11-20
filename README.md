@@ -53,7 +53,7 @@ To upgrade later, run `git pull` in the clone, then `makepkg -si` again. notecal
 Download `notecal_<version>_amd64.deb` from [Releases](https://github.com/troazz/notecal/releases) and install it:
 
 ```sh
-sudo apt install ./notecal_1.0.1_amd64.deb
+sudo apt install ./notecal_1.0.2_amd64.deb
 ```
 
 It adds notecal to the app menu and puts `notecal-cli` on your `PATH`. Ubuntu 22.04+, Mint 21+ and Debian 12+ are supported. When a new version is out, notecal shows the same command for it.
