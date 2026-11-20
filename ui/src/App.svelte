@@ -14,6 +14,7 @@
   import type { VimStatus } from "./editor/vimstate";
   import type { CheatSection } from "./notes/cheatsearch";
   import { WELCOME_NOTE, welcomeNote } from "./onboarding/steps";
+  import { upgradeCommand, type UpdateInfo } from "./updates";
   import {
     currentLanguage,
     setLanguage,
@@ -43,6 +44,10 @@
   let usesTime = $state(false);
   /** E10: the vim mode shown in the status bar; null while vim mode is off. */
   let vimStatus = $state<VimStatus | null>(null);
+  /** A9: a newer release, until dismissed for this session. */
+  let update = $state<UpdateInfo | null>(null);
+  const upgrade = $derived(update ? upgradeCommand(update.install) : null);
+  let upgradeCopied = $state(false);
   /** A4: false where the desktop can't keep a window on top (Wayland other than Hyprland). */
   let pinSupported = $state(true);
   /** Whether vim keys are on in the editor (applied, not just saved). */
@@ -301,6 +306,9 @@
   onMount(() => {
     const appWindow = getCurrentWindow();
     applyLanguage();
+    invoke<UpdateInfo | null>("update_status")
+      .then((info) => (update = info))
+      .catch((error: unknown) => console.error("update_status failed", error));
     invoke<"native" | "hyprland" | "none">("pin_support")
       .then((support) => (pinSupported = support !== "none"))
       .catch((error: unknown) => console.error("pin_support failed", error));
@@ -321,6 +329,7 @@
     const stops = [
       settingsApi.onChanged(applySettings),
       listen("notes-dir-changed", () => void onNotesDirChanged()),
+      listen<UpdateInfo>("update-available", (event) => (update = event.payload)),
       listen<{ date: string | null }>("rates-updated", (event) => {
         ratesDate = event.payload.date;
         editor?.reevaluate();
@@ -520,12 +529,44 @@
       <Onboarding onsave={saveSettings} onfinish={(welcome) => void finishOnboarding(welcome)} onerror={report} />
     {/await}
   {/if}
-  {#if notice}
-    <div class="notice" role="alert">
-      <span>{notice}</span>
-      <button type="button" onclick={() => (notice = null)}>{t("app.dismiss")}</button>
-    </div>
-  {/if}
+  <div class="notices">
+    {#if update}
+      <div class="notice update" role="status">
+        <span>{t("update.available", { version: update.version })}</span>
+        {#if upgrade}
+          <span class="upgrade">
+            {update.install === "pacman" ? t("update.pacman") : t("update.homebrew")}
+            <code>{upgrade}</code>
+          </span>
+        {/if}
+        <span class="actions">
+          {#if upgrade}
+            <button
+              type="button"
+              onclick={() =>
+                navigator.clipboard
+                  .writeText(upgrade)
+                  .then(() => (upgradeCopied = true))
+                  .catch((error: unknown) => report(String(error)))}
+              >{upgradeCopied ? t("onboarding.copied") : t("onboarding.copy")}</button
+            >
+          {/if}
+          <button
+            type="button"
+            onclick={() => invoke("open_release_page").catch((error: unknown) => report(String(error)))}
+            >{upgrade ? t("update.whatsNew") : t("update.download")}</button
+          >
+          <button type="button" onclick={() => (update = null)}>{t("update.later")}</button>
+        </span>
+      </div>
+    {/if}
+    {#if notice}
+      <div class="notice" role="alert">
+        <span>{notice}</span>
+        <button type="button" onclick={() => (notice = null)}>{t("app.dismiss")}</button>
+      </div>
+    {/if}
+  </div>
   {#if showStats}
     <aside class="stats" aria-live="polite">
       <span>{statsLine()}</span>
@@ -554,12 +595,19 @@
     flex: 1;
     min-height: 0;
   }
-  .notice {
+  .notices {
     position: absolute;
     right: 0.75rem;
     /* Above the status bar. */
     bottom: calc(22px + 0.75rem);
     max-width: min(28rem, calc(100% - 1.5rem));
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    z-index: 20;
+  }
+  .notice {
     display: flex;
     gap: 0.75rem;
     align-items: center;
@@ -568,7 +616,25 @@
     border-radius: 6px;
     background: var(--panel-color);
     font: 13px system-ui, sans-serif;
-    z-index: 20;
+  }
+  .notice.update {
+    flex-wrap: wrap;
+  }
+  .upgrade {
+    flex-basis: 100%;
+    color: var(--muted-color);
+  }
+  .upgrade code {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--text-color);
+    font: 12px var(--editor-font, monospace);
+    user-select: all;
+  }
+  .actions {
+    display: flex;
+    gap: 0.4rem;
+    margin-left: auto;
   }
   .notice button {
     font: inherit;

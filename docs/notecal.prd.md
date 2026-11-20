@@ -171,6 +171,7 @@ These rules are normative. Each one gets golden test cases.
 | A5 | Remember window size and position | P1 |
 | A6 | Settings screen covering hotkey, theme, font, decimal precision, locale, notes directory, and currency refresh | P1 |
 | A7 | Command-line evaluation, e.g. `notecal "5 km in miles"`, that prints the result and exits | P2 |
+| A9 | Update check: once a day, compare with the latest GitHub release and offer the upgrade step for the install method (Homebrew, pacman, or download); never installs by itself; can be turned off | P1 |
 | A8 | First-run onboarding: look, language and numbers, keys, data; each choice applied live; skippable; reopenable | P1 |
 
 ## Non-functional requirements

@@ -86,6 +86,7 @@ background = true        # closing the window hides it; quit from the tray
 css_ppi = 96             # px per inch, 1–1000
 css_em_px = 16           # px per em and rem, 1–200
 vim_mode = false         # vim keys in the editor
+check_updates = true     # look for a newer release on github.com once a day
 ```
 
 ## Definitions

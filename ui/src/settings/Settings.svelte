@@ -280,6 +280,14 @@
               onchange={(e) => void update({ vim_mode: e.currentTarget.checked }, e.currentTarget)}
             /> {t("settings.vimMode")}</label
           >
+          <label
+            ><input
+              type="checkbox"
+              data-key="check_updates"
+              checked={settings.check_updates}
+              onchange={(e) => void update({ check_updates: e.currentTarget.checked }, e.currentTarget)}
+            /> {t("settings.checkUpdates")}</label
+          >
         </div>
       </div>
     {/if}

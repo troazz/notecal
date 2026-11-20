@@ -21,6 +21,8 @@ export interface AppSettings {
   css_em_px: number;
   /** Vim keys in the editor. */
   vim_mode: boolean;
+  /** Look for a newer release once a day. */
+  check_updates: boolean;
 }
 
 /** Mirrors `SettingsView`: settings plus problems found reading the file. */

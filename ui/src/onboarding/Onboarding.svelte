@@ -392,6 +392,14 @@
             {t("onboarding.rates")}
           </label>
           <p class="hint">{t("onboarding.ratesHint")}</p>
+          <label class="check">
+            <input
+              type="checkbox"
+              checked={settings.check_updates}
+              onchange={(e) => void update({ check_updates: e.currentTarget.checked })}
+            />
+            {t("onboarding.updates")}
+          </label>
           <fieldset>
             <legend>{t("settings.notesDir")}</legend>
             <input

@@ -46,7 +46,7 @@ cd notecal/packaging/aur
 makepkg -si
 ```
 
-To upgrade later, run `git pull` in the clone, then `makepkg -si` again.
+To upgrade later, run `git pull` in the clone, then `makepkg -si` again. notecal tells you when a new version is out and shows this command (turn it off with "Check for updates daily" in Settings).
 
 ### Other Linux
 

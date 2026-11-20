@@ -106,6 +106,8 @@ pub struct AppSettings {
     pub css_em_px: u16,
     /// Vim keys in the editor (PRD E10).
     pub vim_mode: bool,
+    /// Look for a newer release once a day (PRD A9).
+    pub check_updates: bool,
 }
 
 impl Default for AppSettings {
@@ -125,6 +127,7 @@ impl Default for AppSettings {
             css_ppi: 96,
             css_em_px: 16,
             vim_mode: false,
+            check_updates: true,
         }
     }
 }
@@ -255,12 +258,13 @@ pub fn parse(text: &str) -> SettingsView {
                 Some(n) => settings.css_em_px = n,
                 None => bad(&mut problems, "a number from 1 to 200"),
             },
-            "currency_refresh" | "always_on_top" | "background" | "vim_mode" => {
+            "currency_refresh" | "always_on_top" | "background" | "vim_mode" | "check_updates" => {
                 match value.as_bool() {
                     Some(b) => match key.as_str() {
                         "currency_refresh" => settings.currency_refresh = b,
                         "always_on_top" => settings.always_on_top = b,
                         "vim_mode" => settings.vim_mode = b,
+                        "check_updates" => settings.check_updates = b,
                         _ => settings.background = b,
                     },
                     None => bad(&mut problems, "true or false"),
@@ -407,6 +411,7 @@ mod tests {
             notes_dir: dir.path().join("notes").to_string_lossy().into_owned(),
             currency_refresh: false,
             vim_mode: true,
+            check_updates: false,
             ..AppSettings::default()
         };
         save(&path, &settings).unwrap();

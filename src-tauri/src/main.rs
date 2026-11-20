@@ -6,6 +6,7 @@ mod pin;
 mod shell;
 mod state;
 mod theme;
+mod updates;
 mod watch;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -123,6 +124,7 @@ fn main() {
         .manage(shell::ShortcutStatus::default())
         .manage(shell::TrayState::default())
         .manage(shell::QuitState::default())
+        .manage(updates::UpdateState::default())
         .setup(|app| {
             let paths = app.path();
             let config_dir = paths.config_dir()?;
@@ -208,6 +210,7 @@ fn main() {
                 .clone();
             tauri::WebviewWindowBuilder::from_config(app.handle(), &window_config)?.build()?;
             shell::apply_window_settings(app.handle(), &current);
+            updates::start(app.handle());
             let language = app.state::<SettingsState>().ui_language();
             match shell::create_tray(app.handle(), language) {
                 Ok(()) => app.state::<shell::TrayState>().set_available(),
@@ -240,6 +243,8 @@ fn main() {
             shell::tray_available,
             pin::pin_support,
             pin::desktop_info,
+            updates::update_status,
+            updates::open_release_page,
             shell::cancel_quit,
             commands::rates_status,
             commands::currency_codes,
