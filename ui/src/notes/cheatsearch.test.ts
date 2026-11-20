@@ -72,6 +72,6 @@ describe("cheatRows", () => {
 
   it("lists vim keys only while vim mode is on", () => {
     expect(texts("vim")).toEqual([]);
-    expect(texts("vim", true)).toEqual(["Esc", ":w", ":q  :x  :wq", '"+y  "+p']);
+    expect(texts("vim", true)).toEqual([":w", ":q  :x  :wq", '"+y  "+p']);
   });
 });

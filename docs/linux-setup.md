@@ -8,7 +8,7 @@ Wayland compositors do not let apps register global shortcuts, so on Wayland you
 notecal --toggle
 ```
 
-That shows notecal (focused) or hides it if it is already in front. If notecal is not running yet, it starts. Esc also hides the window. On X11 and macOS the shortcut from Settings (default Alt+Space) works without this.
+That shows notecal (focused) or hides it if it is already in front. If notecal is not running yet, it starts. On X11 and macOS the shortcut from Settings (default Alt+Space) works without this.
 
 Until notecal is installed on your `PATH`, use the full path to the binary, for example `~/Work/notecal/target/release/notecal --toggle`.
 

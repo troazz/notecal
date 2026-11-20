@@ -67,7 +67,7 @@ total                          → 5,300,000 IDR
 
 **Key scenarios**
 
-1. Quick calculation: press the hotkey, type, read the result, copy it, and press Esc to hide the window. The whole round trip takes under 3 s.
+1. Quick calculation: press the hotkey, type, read the result, copy it, and press the hotkey again to hide the window. Esc stays in the editor (it closes search and completion, and is vim's in vim mode); it never hides the window. The whole round trip takes under 3 s.
 2. Budget note: build up variables, reuse them across lines, and finish with a total. The note is saved automatically.
 3. Unit and currency conversion: type something like `1.5 GB in MB` or `100 USD in IDR` and get an immediate answer, even offline with cached rates.
 4. Dev math: convert between hex, binary, and decimal, and work out bytes, durations, and percentages for capacity planning.
@@ -311,7 +311,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 | 9 | UI languages (~1 w) | Interface strings in a catalog; English and Indonesian; `language = "auto"` | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 10 | Windows and iCloud Drive (~2 w) | Windows build, tests and installer in CI; Windows-safe saves; iCloud Drive notes folder on macOS | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 11 | Cheatsheet in Ctrl+P (~0.5 w) | Typing `?` in the switcher shows calculation examples by section with live results from the engine; filterable; Enter inserts an example into the note | complete | `.claude/plans/m6-dates-timezones.plan.md` |
-| 12 | Vim mode, always-on-top toggle, searchable help (~2 w) | E10: opt-in vim keys via `vim_mode`; mode in the status bar; Esc leaves insert mode before it hides the window; `:w`/`:q`; app shortcuts keep working. A4: pin button in the status bar; always-on-top works on Hyprland. M11: cheatsheet examples have translated explanations, and search covers them plus a keyboard-shortcuts section | complete | `.claude/plans/m12-vim-mode.plan.md` |
+| 12 | Vim mode, always-on-top toggle, searchable help (~2 w) | E10: opt-in vim keys via `vim_mode`; mode in the status bar; `:w`/`:q`; app shortcuts keep working. A4: pin button in the status bar; always-on-top works on Hyprland. M11: cheatsheet examples have translated explanations, and search covers them plus a keyboard-shortcuts section | complete | `.claude/plans/m12-vim-mode.plan.md` |
 | 13 | First-run onboarding (~1.5 w) | A8: a welcome screen on a fresh install (Zed/VS Code style) for theme, font size, language, number format, keys (bind line, vim, pin) and data (rates, notes folder); live; skippable; reopenable; optional welcome note | complete | `.claude/plans/m13-onboarding.plan.md` |
 
 **Gate 1 (end of M2): WebKitGTK on Arch.** This is the biggest risk, so it is checked before investing in features. Measure on the author's Arch/Hyprland machine: keystroke-to-results p95 on a 200-line note, cold start, and idle RAM. Result: **passed on Arch** (`docs/gate1.md`). The macOS measurement was deferred by the author to focus on Linux; WKWebView is the lower-risk platform and is measured at Gate 2.

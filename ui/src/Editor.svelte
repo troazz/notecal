@@ -15,8 +15,6 @@
     insertBelow: (text: string) => void;
     /** Vim keys on (with the app's handlers) or off (`null`); undo history is kept. */
     setVim: (handlers: VimHandlers | null) => Promise<void>;
-    /** True while Esc belongs to vim (insert/visual mode, keys pending, `:` open). */
-    vimBusy: () => boolean;
   }
 </script>
 
@@ -42,7 +40,6 @@
   import type { KeystrokeTimer } from "./editor/perf";
   import type { EvalResponse } from "./editor/types";
   import type { VimHandlers } from "./editor/vim";
-  import { vimBusyIn } from "./editor/vimstate";
 
   let {
     timer,
@@ -170,7 +167,6 @@
         vimExtension = next;
         editor.dispatch({ effects: vimMode.reconfigure(vimExtension) });
       },
-      vimBusy: () => vimBusyIn(editor),
     });
     view.focus();
     requestAnimationFrame(() => void invoke("mark_ready"));

@@ -1,5 +1,5 @@
-// Pure helpers for vim mode, kept apart from the library so the status bar,
-// the Esc rule and tests don't load it.
+// Pure helpers for vim mode, kept apart from the library so the status bar
+// and tests don't load it.
 
 /** The part of the library's per-editor state that notecal reads. */
 export interface VimInputState {
@@ -32,18 +32,6 @@ const LABELS: Record<string, string> = {
   "visual blockwise": "V-BLOCK",
 };
 
-function hasPendingKeys(vim: VimInputState): boolean {
-  const input = vim.inputState;
-  if (!input) return false;
-  return Boolean(
-    input.keyBuffer?.length ||
-      input.operator ||
-      input.prefixRepeat?.length ||
-      input.motionRepeat?.length ||
-      input.registerName,
-  );
-}
-
 /** Keys of the one-key operators in normal mode (multi-key ones have `operatorShortcut`). */
 const OPERATOR_KEYS: Record<string, string> = { delete: "d", yank: "y", change: "c", indentAuto: "=" };
 
@@ -72,17 +60,4 @@ function pendingKeys(vim: VimInputState): string {
 export function describeVim(mode: string, vim: VimInputState | null): VimStatus {
   const label = LABELS[mode] ?? mode.toUpperCase();
   return { mode: label, pending: vim ? pendingKeys(vim) : "" };
-}
-
-/** True while Esc belongs to vim rather than hiding the window. */
-export function isVimBusy(vim: VimInputState | null, dialogOpen: boolean): boolean {
-  if (!vim) return false;
-  return dialogOpen || Boolean(vim.insertMode || vim.visualMode) || hasPendingKeys(vim);
-}
-
-/** `view.cm` is where the library keeps its editor adapter (`getCM`). */
-export function vimBusyIn(view: object | null | undefined): boolean {
-  const cm = (view as { cm?: { state: { vim?: VimInputState | null; dialog?: unknown } } } | null)?.cm;
-  if (!cm) return false;
-  return isVimBusy(cm.state.vim ?? null, Boolean(cm.state.dialog));
 }

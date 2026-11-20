@@ -411,7 +411,7 @@
             <dd>{t("onboarding.tipNotes")}</dd>
             <dt><kbd>Ctrl+P</kbd> <kbd>?</kbd></dt>
             <dd>{t("onboarding.tipCheat")}</dd>
-            <dt><kbd>Esc</kbd></dt>
+            <dt><kbd>Alt+Space</kbd></dt>
             <dd>{t("onboarding.tipHide")}</dd>
             <dt>{t("onboarding.clickResult")}</dt>
             <dd>{t("onboarding.tipCopy")}</dd>

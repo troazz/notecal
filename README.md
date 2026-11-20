@@ -93,7 +93,7 @@ More, including an Omarchy menu entry and a Raycast script: [docs/linux-setup.md
 |---|---|
 | Ctrl+P | Find, create, rename (F2) or delete (Ctrl+Delete) a note; type `?` for the cheatsheet of calculations, functions and keys, searchable in English or Indonesian (`?discount`, `?tz tokyo`, `?keys`; Enter inserts an example) |
 | Ctrl+, | Settings |
-| Esc | Hide the window |
+| Alt+Space | Show or hide notecal (the shortcut from Settings; on Wayland, the key bound to `notecal --toggle`). Esc stays in the editor and never hides the window |
 | Click a result | Copy it as shown; Alt+click copies the bare number |
 | Ctrl+Shift+C / Ctrl+Shift+B | Copy the current line's result / bare number |
 | Ctrl+Shift+A | Read the current result aloud (screen readers) |
@@ -103,7 +103,7 @@ More, including an Omarchy menu entry and a Raycast script: [docs/linux-setup.md
 
 On macOS use Cmd instead of Ctrl.
 
-**Vim mode.** Turn on "Vim keys in the editor" in Settings (`vim_mode = true`). The status bar shows the mode. Esc in insert or visual mode goes back to normal mode; Esc in normal mode hides the window. `:w` saves, `:q`, `:x` and `:wq` save and hide, and `"+y` / `"+p` use the system clipboard. The app's Ctrl shortcuts keep working in every mode.
+**Vim mode.** Turn on "Vim keys in the editor" in Settings (`vim_mode = true`). The status bar shows the mode. Esc goes back to normal mode. `:w` saves, `:q`, `:x` and `:wq` save and hide, and `"+y` / `"+p` use the system clipboard. The app's Ctrl shortcuts keep working in every mode.
 
 ## Files
 

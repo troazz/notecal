@@ -367,21 +367,13 @@
       );
   });
 
-  /** Set before vim sees Esc: true when that Esc is vim's (leave insert mode, cancel `d`). */
-  let escapeForVim = false;
-
   /**
    * Runs before the editor's own keys. With vim on, app shortcuts must win over
-   * vim's (Ctrl+P is `k` in normal mode), and the Esc decision must be made
-   * before vim clears a pending operator.
+   * vim's (Ctrl+P is `k` in normal mode). Esc is never the app's: in the editor
+   * it belongs to the editor (vim, search, completion); the toggle key hides.
    */
   function onKeydownCapture(event: KeyboardEvent) {
     const target = event.target instanceof Element ? event.target : null;
-    if (event.key === "Escape") {
-      // Esc in a panel (search, vim's `:` prompt) is the panel's; see inEditorPanel.
-      escapeForVim = target?.closest(".cm-content") ? (editor?.vimBusy() ?? false) : false;
-      return;
-    }
     // The whole editor, panels included: vim's `:` and `/` prompts swallow keys too.
     if (!appSettings?.vim_mode || !target?.closest(".cm-editor")) return;
     const action = shortcutAction(event);
@@ -432,22 +424,9 @@
 
   function onKeydown(event: KeyboardEvent) {
     const action = shortcutAction(event);
-    if (action) {
-      event.preventDefault();
-      action();
-    } else if (
-      event.key === "Escape" &&
-      !showSwitcher &&
-      !showSettings &&
-      !showOnboarding &&
-      !event.defaultPrevented &&
-      !inEditorPanel(event) &&
-      !escapeForVim
-    ) {
-      // Key scenario 1: Esc hides the window; edits are saved first.
-      event.preventDefault();
-      void persist().then(() => getCurrentWindow().hide());
-    }
+    if (!action) return;
+    event.preventDefault();
+    action();
   }
 
   async function toggleAlwaysOnTop() {
@@ -458,11 +437,6 @@
     } catch (error) {
       report(String(error));
     }
-  }
-
-  /** Esc inside the editor's search panel closes the panel, not the window. */
-  function inEditorPanel(event: KeyboardEvent): boolean {
-    return event.target instanceof Element && event.target.closest(".cm-panels") !== null;
   }
 
   function statsLine(): string {
