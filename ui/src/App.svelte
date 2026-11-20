@@ -11,6 +11,7 @@
   import { settingsApi, type AppSettings, type SettingsView } from "./settings/api";
   import { NoteSession } from "./notes/session";
   import { KeystrokeTimer } from "./editor/perf";
+  import type { VimStatus } from "./editor/vimstate";
   import {
     currentLanguage,
     setLanguage,
@@ -35,6 +36,12 @@
   let shownLanguage = $state<Language>("en");
   /** C11: the note shows `now`/`today`, so results refresh on the minute. */
   let usesTime = $state(false);
+  /** E10: the vim mode shown in the status bar; null while vim mode is off. */
+  let vimStatus = $state<VimStatus | null>(null);
+  /** A4: false where the desktop can't keep a window on top (Wayland other than Hyprland). */
+  let pinSupported = $state(true);
+  /** Whether vim keys are on in the editor (applied, not just saved). */
+  let vimApplied = false;
 
   let editor: EditorController | undefined;
   let session: NoteSession | undefined;
@@ -105,7 +112,27 @@
       clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
       now: () => new Date(),
     });
+    applyVim();
     void start();
+  }
+
+  /** Turns vim keys on or off to match the settings (E10). */
+  function applyVim() {
+    const on = appSettings?.vim_mode ?? false;
+    if (!editor || on === vimApplied) return;
+    vimApplied = on;
+    if (!on) vimStatus = null;
+    editor
+      .setVim(
+        on
+          ? {
+              onstatus: (status) => (vimStatus = status),
+              onwrite: () => void persist(),
+              onquit: () => void persist().then(() => getCurrentWindow().hide()),
+            }
+          : null,
+      )
+      .catch((error: unknown) => report(String(error)));
   }
 
   /** Reopens the last note at its cursor (N4), or the most recent note. */
@@ -183,6 +210,7 @@
     applyLanguage();
     if (view.problems.length) report(`settings.toml: ${view.problems.map(translateMessage).join(" ")}`);
     applyFont(view.settings);
+    applyVim();
     // Locale and precision are applied by the backend; results need a refresh.
     editor?.reevaluate();
   }
@@ -236,6 +264,9 @@
   onMount(() => {
     const appWindow = getCurrentWindow();
     applyLanguage();
+    invoke<"native" | "hyprland" | "none">("pin_support")
+      .then((support) => (pinSupported = support !== "none"))
+      .catch((error: unknown) => console.error("pin_support failed", error));
     invoke<{ date: string | null }>("rates_status")
       .then((status) => (ratesDate = status.date))
       .catch((error: unknown) => console.error("rates_status failed", error));
@@ -247,6 +278,7 @@
           report(`settings.toml: ${view.problems.map(translateMessage).join(" ")}`);
         }
         applyFont(view.settings);
+        applyVim();
       })
       .catch((error: unknown) => report(String(error)));
     const stops = [
@@ -298,31 +330,83 @@
       );
   });
 
-  function onKeydown(event: KeyboardEvent) {
+  /** Set before vim sees Esc: true when that Esc is vim's (leave insert mode, cancel `d`). */
+  let escapeForVim = false;
+
+  /**
+   * Runs before the editor's own keys. With vim on, app shortcuts must win over
+   * vim's (Ctrl+P is `k` in normal mode), and the Esc decision must be made
+   * before vim clears a pending operator.
+   */
+  function onKeydownCapture(event: KeyboardEvent) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (event.key === "Escape") {
+      // Esc in a panel (search, vim's `:` prompt) is the panel's; see inEditorPanel.
+      escapeForVim = target?.closest(".cm-content") ? (editor?.vimBusy() ?? false) : false;
+      return;
+    }
+    // The whole editor, panels included: vim's `:` and `/` prompts swallow keys too.
+    if (!appSettings?.vim_mode || !target?.closest(".cm-editor")) return;
+    const action = shortcutAction(event);
+    if (!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (target.closest(".cm-panels") && target instanceof HTMLElement) {
+      // Vim closes its prompt on a timer after blur and then focuses the editor;
+      // run the shortcut after that, so the switcher or settings keep the focus.
+      target.blur();
+      setTimeout(action);
+    } else {
+      action();
+    }
+  }
+
+  /** The app's Ctrl shortcuts; null for any other key. */
+  function shortcutAction(event: KeyboardEvent): (() => void) | null {
     const mod = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
-    if (mod && event.shiftKey && key === "m") {
+    if (!mod) return null;
+    if (event.shiftKey && key === "m") {
+      return () => {
+        stats = timer.stats();
+        showStats = !showStats;
+      };
+    }
+    // A4: always on top, saved as a setting.
+    if (event.shiftKey && key === "t") return () => void toggleAlwaysOnTop();
+    if (event.key === ",") {
+      return () => {
+        showSwitcher = false;
+        showSettings = !showSettings;
+        if (!showSettings) editor?.focus();
+      };
+    }
+    if (!event.shiftKey && key === "p") {
+      return () => {
+        void session?.flush();
+        showSwitcher = !showSwitcher;
+        if (!showSwitcher) editor?.focus();
+      };
+    }
+    return null;
+  }
+
+  function onKeydown(event: KeyboardEvent) {
+    const action = shortcutAction(event);
+    if (action) {
       event.preventDefault();
-      stats = timer.stats();
-      showStats = !showStats;
-    } else if (mod && event.shiftKey && key === "t") {
-      // A4: always on top, saved as a setting.
-      event.preventDefault();
-      void toggleAlwaysOnTop();
-    } else if (mod && event.key === ",") {
-      event.preventDefault();
-      showSwitcher = false;
-      showSettings = !showSettings;
-      if (!showSettings) editor?.focus();
-    } else if (event.key === "Escape" && !showSwitcher && !showSettings && !event.defaultPrevented && !inEditorPanel(event)) {
+      action();
+    } else if (
+      event.key === "Escape" &&
+      !showSwitcher &&
+      !showSettings &&
+      !event.defaultPrevented &&
+      !inEditorPanel(event) &&
+      !escapeForVim
+    ) {
       // Key scenario 1: Esc hides the window; edits are saved first.
       event.preventDefault();
       void persist().then(() => getCurrentWindow().hide());
-    } else if (mod && !event.shiftKey && key === "p") {
-      event.preventDefault();
-      void session?.flush();
-      showSwitcher = !showSwitcher;
-      if (!showSwitcher) editor?.focus();
     }
   }
 
@@ -347,7 +431,7 @@
   }
 </script>
 
-<svelte:window onkeydown={onKeydown} />
+<svelte:window onkeydown={onKeydown} onkeydowncapture={onKeydownCapture} />
 
 <main>
   <div class="editor-area">
@@ -370,6 +454,10 @@
     {usesTime}
     ontogglelanguage={toggleLanguage}
     ontogglelocale={toggleLocale}
+    {vimStatus}
+    pinned={appSettings?.always_on_top ?? false}
+    {pinSupported}
+    ontogglepin={() => void toggleAlwaysOnTop()}
   />
   {#if showSwitcher}
     <Switcher
@@ -387,6 +475,7 @@
         editor?.focus();
       }}
       onerror={report}
+      vimMode={appSettings?.vim_mode ?? false}
       oninsert={(text) => {
         showSwitcher = false;
         editor?.insertBelow(text);

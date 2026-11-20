@@ -50,7 +50,7 @@ describe("translateMessage", () => {
 
 describe("cheatsheet", () => {
   it("has a title in both languages for every section the engine defines", () => {
-    const ids = [...cheatsheetSource.matchAll(/id: "(\w+)"/g)].map((m) => m[1]);
+    const ids = [...cheatsheetSource.matchAll(/Section \{\s*id: "(\w+)"/g)].map((m) => m[1]);
     expect(ids.length).toBeGreaterThan(5);
     for (const language of ["en", "id"] as const) {
       setLanguage(language);
@@ -58,6 +58,18 @@ describe("cheatsheet", () => {
         const key = `cheatsheet.${id}` as Key;
         expect(t(key), `${language} ${key}`).not.toBe(key);
         expect(t(key)).toBeTruthy();
+      }
+    }
+  });
+
+  it("has an explanation in both languages for every example", () => {
+    const ids = [...cheatsheetSource.matchAll(/ex\("([\w-]+)"/g)].map((m) => m[1]);
+    expect(ids.length).toBeGreaterThan(40);
+    for (const language of ["en", "id"] as const) {
+      setLanguage(language);
+      for (const id of ids) {
+        const key = `cheat.${id}` as Key;
+        expect(t(key), `${language} ${key}`).not.toBe(key);
       }
     }
   });

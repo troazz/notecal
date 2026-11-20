@@ -2,6 +2,7 @@ mod commands;
 mod er_api;
 mod evaluator;
 mod notes;
+mod pin;
 mod shell;
 mod state;
 mod theme;
@@ -235,6 +236,7 @@ fn main() {
             cheatsheet,
             shell::quit,
             shell::tray_available,
+            pin::pin_support,
             shell::cancel_quit,
             commands::rates_status,
             commands::currency_codes,

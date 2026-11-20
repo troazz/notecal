@@ -2,7 +2,8 @@
   import { onMount, tick } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { notesApi, type NoteInfo } from "./api";
-  import { t, type Key } from "../i18n.svelte";
+  import { t } from "../i18n.svelte";
+  import { cheatRows, type CheatRow, type CheatSection } from "./cheatsearch";
 
   let {
     current,
@@ -13,6 +14,7 @@
     onclose,
     onerror,
     oninsert,
+    vimMode = false,
   }: {
     current: string | null;
     /** Settles pending saves, so none lands on a renamed or deleted note. */
@@ -24,39 +26,11 @@
     onerror: (message: string) => void;
     /** Inserts a cheatsheet example into the note (M11). */
     oninsert: (text: string) => void;
+    /** Lists the vim keys in the cheatsheet's shortcuts (E10). */
+    vimMode?: boolean;
   } = $props();
 
-  /** Mirrors `CheatSection` in src-tauri/src/evaluator.rs. */
-  type CheatSection = {
-    id: string;
-    examples: { text: string; result: string | null }[];
-  };
-
-  type Row =
-    | { kind: "note"; name: string }
-    | { kind: "create"; name: string }
-    | { kind: "cheatsheet" }
-    | { kind: "example"; title: string; text: string; result: string | null; first: boolean };
-
-  function sectionTitle(id: string): string {
-    return t(`cheatsheet.${id}` as Key);
-  }
-
-  function exampleRows(filter: string): Row[] {
-    const rows: Row[] = [];
-    for (const section of sheet ?? []) {
-      const title = sectionTitle(section.id);
-      // The English id too, so `?date` works whatever the interface language.
-      const inTitle = title.toLowerCase().includes(filter) || section.id.includes(filter);
-      let first = true;
-      for (const example of section.examples) {
-        if (!inTitle && !example.text.toLowerCase().includes(filter)) continue;
-        rows.push({ kind: "example", title, ...example, first });
-        first = false;
-      }
-    }
-    return rows;
-  }
+  type Row = { kind: "note"; name: string } | { kind: "create"; name: string } | { kind: "cheatsheet" } | CheatRow;
 
   let notes = $state<NoteInfo[]>([]);
   let query = $state("");
@@ -83,7 +57,7 @@
 
 
   const rows = $derived.by((): Row[] => {
-    if (cheatMode) return exampleRows(query.trimStart().slice(1).trim().toLowerCase());
+    if (cheatMode) return cheatRows(sheet ?? [], query.trimStart().slice(1), vimMode);
     const q = query.trim();
     const lower = q.toLowerCase();
     const matches: Row[] = notes
@@ -133,6 +107,8 @@
       oninsert(row.text);
       return;
     }
+    // Shortcut rows are help only.
+    if (row.kind === "shortcut") return;
     if (row.kind === "create") {
       try {
         await notesApi.create(row.name);
@@ -249,7 +225,7 @@
     />
     <!-- Clicking a row must not take focus from the input. -->
     <ul id="note-list" role="listbox" aria-label={t("switcher.notes")} onmousedown={(e) => e.preventDefault()}>
-      {#each rows as row, i (row.kind === "example" ? row.title + row.text : row.kind === "cheatsheet" ? "cheatsheet" : row.kind + row.name)}
+      {#each rows as row, i (row.kind === "example" ? row.title + row.text : row.kind === "shortcut" ? row.help : row.kind === "cheatsheet" ? "cheatsheet" : row.kind + row.name)}
         <li
           id="note-row-{i}"
           role="option"
@@ -268,6 +244,15 @@
               <span class="example-line">
                 <code>{row.text.replaceAll("\n", "  ⏎  ")}</code>
                 <span class="result">{row.result ?? ""}</span>
+              </span>
+              <span class="help">{row.help}</span>
+            </span>
+          {:else if row.kind === "shortcut"}
+            <span class="example">
+              {#if row.first}<span class="section">{row.title}</span>{/if}
+              <span class="example-line">
+                <kbd>{row.keys}</kbd>
+                <span class="help">{row.help}</span>
               </span>
             </span>
           {:else if row.kind === "create"}
@@ -463,5 +448,16 @@
     flex: none;
     color: var(--muted-color);
     font-family: var(--editor-font, monospace);
+  }
+  .example-line kbd {
+    flex: none;
+    font-family: var(--editor-font, monospace);
+  }
+  .help {
+    color: var(--muted-color);
+    font-size: 12px;
+  }
+  .example-line .help {
+    text-align: right;
   }
 </style>

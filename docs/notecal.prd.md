@@ -148,6 +148,7 @@ These rules are normative. Each one gets golden test cases.
 | E7 | Adjustable font and font size | P1 |
 | E8 | Alt-click or a shortcut copies the bare number (no unit, no group separators) | P1 |
 | E9 | A shortcut announces the current line's result to screen readers (ARIA live region) | P1 |
+| E10 | Vim keybinding mode (off by default); the status bar shows the mode | P2 |
 
 ### Notes
 
@@ -309,6 +310,7 @@ v1.0 is planned as five milestones totalling about 9 weeks of part-time work. Th
 | 9 | UI languages (~1 w) | Interface strings in a catalog; English and Indonesian; `language = "auto"` | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 10 | Windows and iCloud Drive (~2 w) | Windows build, tests and installer in CI; Windows-safe saves; iCloud Drive notes folder on macOS | complete | `.claude/plans/m6-dates-timezones.plan.md` |
 | 11 | Cheatsheet in Ctrl+P (~0.5 w) | Typing `?` in the switcher shows calculation examples by section with live results from the engine; filterable; Enter inserts an example into the note | complete | `.claude/plans/m6-dates-timezones.plan.md` |
+| 12 | Vim mode, always-on-top toggle, searchable help (~2 w) | E10: opt-in vim keys via `vim_mode`; mode in the status bar; Esc leaves insert mode before it hides the window; `:w`/`:q`; app shortcuts keep working. A4: pin button in the status bar; always-on-top works on Hyprland. M11: cheatsheet examples have translated explanations, and search covers them plus a keyboard-shortcuts section | complete | `.claude/plans/m12-vim-mode.plan.md` |
 
 **Gate 1 (end of M2): WebKitGTK on Arch.** This is the biggest risk, so it is checked before investing in features. Measure on the author's Arch/Hyprland machine: keystroke-to-results p95 on a 200-line note, cold start, and idle RAM. Result: **passed on Arch** (`docs/gate1.md`). The macOS measurement was deferred by the author to focus on Linux; WKWebView is the lower-risk platform and is measured at Gate 2.
 

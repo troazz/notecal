@@ -13,6 +13,10 @@
     focus: () => void;
     /** Inserts `text` on a new line below the cursor (on the cursor's line if empty). */
     insertBelow: (text: string) => void;
+    /** Vim keys on (with the app's handlers) or off (`null`); undo history is kept. */
+    setVim: (handlers: VimHandlers | null) => Promise<void>;
+    /** True while Esc belongs to vim (insert/visual mode, keys pending, `:` open). */
+    vimBusy: () => boolean;
   }
 </script>
 
@@ -21,7 +25,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
   import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
-  import { Compartment, EditorState } from "@codemirror/state";
+  import { Compartment, EditorState, type Extension } from "@codemirror/state";
   import {
     EditorView,
     crosshairCursor,
@@ -37,6 +41,8 @@
   import { Scheduler } from "./editor/scheduler";
   import type { KeystrokeTimer } from "./editor/perf";
   import type { EvalResponse } from "./editor/types";
+  import type { VimHandlers } from "./editor/vim";
+  import { vimBusyIn } from "./editor/vimstate";
 
   let {
     timer,
@@ -79,7 +85,12 @@
     const readOnlyMode = new Compartment();
     let readOnly = false;
     const readOnlyExtension = () => [EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)];
+    // Vim goes first so its keys are seen before the default keymap (E10).
+    const vimMode = new Compartment();
+    let vimExtension: Extension = [];
+    let vimRequest = 0;
     const extensions = [
+        vimMode.of([]),
         readOnlyMode.of(readOnlyExtension()),
         // PRD E4: undo/redo, multiple cursors (Ctrl+click, Alt+drag), search.
         highlightSpecialChars(),
@@ -118,8 +129,10 @@
         // A fresh state, not a change: undo history must never carry text
         // from another note (or a replaced version) into this one.
         editor.setState(EditorState.create({ doc: text, selection: { anchor }, extensions }));
-        // The fresh state starts from the initial extensions; keep the current mode.
-        editor.dispatch({ effects: readOnlyMode.reconfigure(readOnlyExtension()) });
+        // The fresh state starts from the initial extensions; keep the current modes.
+        editor.dispatch({
+          effects: [readOnlyMode.reconfigure(readOnlyExtension()), vimMode.reconfigure(vimExtension)],
+        });
         editor.dispatch({ scrollIntoView: true });
         scheduler.changed();
       },
@@ -149,6 +162,15 @@
         readOnly = flag;
         editor.dispatch({ effects: readOnlyMode.reconfigure(readOnlyExtension()) });
       },
+      setVim: async (handlers) => {
+        const request = ++vimRequest;
+        // Loaded on first use, so users without vim mode don't load the library.
+        const next = handlers ? (await import("./editor/vim")).vimExtension(handlers) : [];
+        if (request !== vimRequest) return; // a later toggle won
+        vimExtension = next;
+        editor.dispatch({ effects: vimMode.reconfigure(vimExtension) });
+      },
+      vimBusy: () => vimBusyIn(editor),
     });
     view.focus();
     requestAnimationFrame(() => void invoke("mark_ready"));

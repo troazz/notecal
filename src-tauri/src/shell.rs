@@ -30,6 +30,12 @@ pub fn show(app: &AppHandle) {
             eprintln!("notecal: could not show the window: {e}");
         }
     }
+    // Hyprland drops a pin when the window is hidden.
+    if crate::pin::support() == crate::pin::PinSupport::Hyprland
+        && let Some(settings) = app.try_state::<crate::commands::SettingsState>()
+    {
+        crate::pin::apply(&window, settings.view().settings.always_on_top);
+    }
 }
 
 /// Hides the window if it is visible and focused; otherwise shows it.
@@ -60,10 +66,8 @@ pub struct ShortcutStatus(Mutex<String>);
 /// Applies the window-related settings: always-on-top (A4) and the global
 /// shortcut (A1).
 pub fn apply_window_settings(app: &AppHandle, settings: &AppSettings) {
-    if let Some(window) = main_window(app)
-        && let Err(e) = window.set_always_on_top(settings.always_on_top)
-    {
-        eprintln!("notecal: could not set always-on-top: {e}");
+    if let Some(window) = main_window(app) {
+        crate::pin::apply(&window, settings.always_on_top);
     }
     let status = register_shortcut(app, &settings.shortcut);
     *app.state::<ShortcutStatus>()

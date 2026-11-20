@@ -269,6 +269,14 @@
               onchange={(e) => void update({ currency_refresh: e.currentTarget.checked }, e.currentTarget)}
             /> {t("settings.currencyRefresh")}</label
           >
+          <label
+            ><input
+              type="checkbox"
+              data-key="vim_mode"
+              checked={settings.vim_mode}
+              onchange={(e) => void update({ vim_mode: e.currentTarget.checked }, e.currentTarget)}
+            /> {t("settings.vimMode")}</label
+          >
         </div>
       </div>
     {/if}

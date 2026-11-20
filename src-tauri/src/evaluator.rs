@@ -37,6 +37,8 @@ pub struct CheatSection {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CheatExample {
+    /// Stable id; the UI shows its translated explanation (`cheat.<id>`).
+    pub id: &'static str,
     /// The example as it is inserted into the note (may span lines).
     pub text: &'static str,
     /// Its last line's result, or the error if it has none (e.g. no rates yet).
@@ -143,11 +145,13 @@ impl Evaluator {
                 examples: section
                     .examples
                     .iter()
-                    .map(|text| {
-                        let results = Engine::default().evaluate(text, &settings, rates.as_ref());
+                    .map(|example| {
+                        let results =
+                            Engine::default().evaluate(example.text, &settings, rates.as_ref());
                         let last = results.last().cloned().unwrap_or_default();
                         CheatExample {
-                            text,
+                            id: example.id,
+                            text: example.text,
                             result: last.display.or(last.error),
                         }
                     })

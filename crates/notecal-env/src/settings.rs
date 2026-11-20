@@ -104,6 +104,8 @@ pub struct AppSettings {
     pub css_ppi: u16,
     /// Pixels per `em` and `rem`.
     pub css_em_px: u16,
+    /// Vim keys in the editor (PRD E10).
+    pub vim_mode: bool,
 }
 
 impl Default for AppSettings {
@@ -122,6 +124,7 @@ impl Default for AppSettings {
             background: true,
             css_ppi: 96,
             css_em_px: 16,
+            vim_mode: false,
         }
     }
 }
@@ -252,14 +255,17 @@ pub fn parse(text: &str) -> SettingsView {
                 Some(n) => settings.css_em_px = n,
                 None => bad(&mut problems, "a number from 1 to 200"),
             },
-            "currency_refresh" | "always_on_top" | "background" => match value.as_bool() {
-                Some(b) => match key.as_str() {
-                    "currency_refresh" => settings.currency_refresh = b,
-                    "always_on_top" => settings.always_on_top = b,
-                    _ => settings.background = b,
-                },
-                None => bad(&mut problems, "true or false"),
-            },
+            "currency_refresh" | "always_on_top" | "background" | "vim_mode" => {
+                match value.as_bool() {
+                    Some(b) => match key.as_str() {
+                        "currency_refresh" => settings.currency_refresh = b,
+                        "always_on_top" => settings.always_on_top = b,
+                        "vim_mode" => settings.vim_mode = b,
+                        _ => settings.background = b,
+                    },
+                    None => bad(&mut problems, "true or false"),
+                }
+            }
             _ => problems.push(format!("'{key}' is not a notecal setting and is ignored.")),
         }
     }
@@ -374,6 +380,15 @@ mod tests {
     }
 
     #[test]
+    fn vim_mode_is_off_by_default_and_must_be_a_bool() {
+        assert!(!AppSettings::default().vim_mode);
+        assert!(parse("vim_mode = true").settings.vim_mode);
+        let bad = parse("vim_mode = \"yes\"");
+        assert!(!bad.settings.vim_mode);
+        assert_eq!(bad.problems.len(), 1);
+    }
+
+    #[test]
     fn broken_toml_gives_defaults_and_one_problem() {
         let view = parse("precision = = 3");
         assert_eq!(view.settings, AppSettings::default());
@@ -391,6 +406,7 @@ mod tests {
             locale: Locale::Id,
             notes_dir: dir.path().join("notes").to_string_lossy().into_owned(),
             currency_refresh: false,
+            vim_mode: true,
             ..AppSettings::default()
         };
         save(&path, &settings).unwrap();

@@ -19,6 +19,8 @@ export interface AppSettings {
   css_ppi: number;
   /** Pixels per `em` and `rem`. */
   css_em_px: number;
+  /** Vim keys in the editor. */
+  vim_mode: boolean;
 }
 
 /** Mirrors `SettingsView`: settings plus problems found reading the file. */

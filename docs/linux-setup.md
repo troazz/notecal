@@ -42,7 +42,7 @@ Settings → Keyboard → View and Customise Shortcuts → Custom Shortcuts → 
 
 ## Window size, position and always on top (Wayland)
 
-On Wayland the compositor decides where windows go and how big they are, and apps cannot keep themselves on top, so notecal's "always on top" setting and its remembered window size only apply on X11 and macOS. On Hyprland, a window rule does the same job:
+On Wayland the compositor decides where windows go and how big they are, so notecal's remembered window size only applies on X11 and macOS. Apps can't keep themselves on top on Wayland either, except that on Hyprland notecal pins its own window through `hyprctl` when "always on top" is on (Ctrl+Shift+T or the pin in the status bar). Hyprland pins only floating windows, so notecal needs a float rule. On other Wayland compositors the pin button is greyed out. A window rule sets the size and position:
 
 ```lua
 -- ~/.config/hypr/hyprland.lua (Lua config)
@@ -54,7 +54,7 @@ hl.window_rule({ match = { class = "^notecal$" }, float = true, center = true, s
 windowrule = float, pin, size 720 520, center, class:^(notecal)$
 ```
 
-`pin` keeps notecal above other windows on every workspace; drop it if you do not want that. The Lua form matches the rules Omarchy itself uses (`/usr/share/omarchy/default/hypr`).
+`pin` in the rule keeps notecal above other windows on every workspace from the start; leave it out to decide with Ctrl+Shift+T instead. The Lua form matches the rules Omarchy itself uses (`/usr/share/omarchy/default/hypr`).
 
 ## Files
 
@@ -81,10 +81,11 @@ precision = 6            # decimal places, 0–20
 locale = "en"            # en: 1,234.5 | id: 1.234,5
 notes_dir = ""           # empty = default folder
 currency_refresh = true  # false = use cached exchange rates only
-always_on_top = false
+always_on_top = false    # X11, macOS, Windows, Hyprland (floating window)
 background = true        # closing the window hides it; quit from the tray
 css_ppi = 96             # px per inch, 1–1000
 css_em_px = 16           # px per em and rem, 1–200
+vim_mode = false         # vim keys in the editor
 ```
 
 ## Definitions
